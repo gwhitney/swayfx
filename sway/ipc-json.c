@@ -7,6 +7,7 @@
 #include <wlr/types/wlr_content_type_v1.h>
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_ext_foreign_toplevel_list_v1.h>
+#include <wlr/util/edges.h>
 #include <xkbcommon/xkbcommon.h>
 #include "config.h"
 #include "json_object.h"
@@ -85,6 +86,22 @@ static const char *ipc_json_border_description(enum sway_container_border border
 		return "normal";
 	case B_CSD:
 		return "csd";
+	}
+	return "unknown";
+}
+
+static const char *ipc_json_title_edge_description(enum wlr_edges edge) {
+	switch (edge) {
+	case WLR_EDGE_TOP:
+		return "top";
+	case WLR_EDGE_BOTTOM:
+		return "bottom";
+	case WLR_EDGE_LEFT:
+		return "left";
+	case WLR_EDGE_RIGHT:
+		return "right";
+	default:
+		return "none";
 	}
 	return "unknown";
 }
@@ -281,6 +298,9 @@ static json_object *ipc_json_create_node(int id, const char* type, char *name,
 	json_object_object_add(object, "border",
 			json_object_new_string(
 				ipc_json_border_description(B_NONE)));
+	json_object_object_add(object, "title_edge",
+			json_object_new_string(
+				ipc_json_title_edge_description(WLR_EDGE_NONE)));
 	json_object_object_add(object, "current_border_width",
 			json_object_new_int(0));
 	json_object_object_add(object, "rect", ipc_json_create_rect(box));
@@ -828,6 +848,9 @@ static void ipc_json_describe_container(struct sway_container *c, json_object *o
 	json_object_object_add(object, "border",
 			json_object_new_string(
 				ipc_json_border_description(c->current.border)));
+	json_object_object_add(object, "title_edge",
+			json_object_new_string(
+				ipc_json_title_edge_description(c->current.title_edge)));
 	json_object_object_add(object, "current_border_width",
 			json_object_new_int(c->current.border_thickness));
 	json_object_object_add(object, "floating_nodes", json_object_new_array());

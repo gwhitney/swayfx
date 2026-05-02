@@ -168,6 +168,7 @@ struct sway_container *container_create(struct sway_view *view) {
 	}
 
 	c->pending.layout = L_NONE;
+	c->pending.title_edge = config->title_edge;
 	c->view = view;
 	c->alpha = 1.0f;
 	c->marks = create_list();

@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include <wlr/types/wlr_compositor.h>
+#include <wlr/util/edges.h>
 #include "list.h"
 #include "sway/animation_manager.h"
 #include "sway/tree/node.h"
@@ -60,6 +61,7 @@ struct sway_container_state {
 	bool border_bottom;
 	bool border_left;
 	bool border_right;
+	enum wlr_edges title_edge;
 
 	// These are in layout coordinates.
 	double content_x, content_y;

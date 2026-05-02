@@ -105,7 +105,8 @@ The following commands may only be used in the configuration file.
 
 ## Runtime only commands
 The following commands cannot be used directly in the configuration file.
-They are expected to be used with *bindsym* or at runtime through *swaymsg*(1).
+They are expected to be used with *bindsym*, *for_window*, or at runtime through
+*swaymsg*(1).
 
 *border* none|normal|csd|pixel [<n>]
 	Set border style for focused window. _normal_ includes a border of
@@ -379,6 +380,10 @@ set|plus|minus|toggle <amount>
 	focus unless it is moved to a different workspace or the second container
 	becomes fullscreen on the same workspace as the first container. In either
 	of those cases, the second container will gain focus.
+
+*title_edge* top|bottom|left|right
+	Sets which edge of the current container/window the titlebar will occupy,
+	if it is displayed.
 
 *title_format* <format>
 	Sets the format of window titles. The following placeholders may be used:
@@ -784,6 +789,11 @@ The default colors are:
 	Set default border style for new floating windows. This only applies to
 	windows that are spawned in floating mode, not windows that become floating
 	afterwards.
+
+*default_title_edge* top|bottom|left|right
+	Set the default edge for titlebar display for new windows/containers.
+	Config reload won't affect existing windows, only newly created ones.
+	Until this command is used, the default title edge is `top`.
 
 *exec* <shell command>
 	Executes _shell command_ with sh.

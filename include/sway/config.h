@@ -7,6 +7,7 @@
 #include <wlr/interfaces/wlr_switch.h>
 #include <wlr/types/wlr_tablet_tool.h>
 #include <wlr/util/box.h>
+#include <wlr/util/edges.h>
 #include <wlr/render/color.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xf86drmMode.h>
@@ -588,6 +589,7 @@ struct sway_config {
 	enum edge_border_types hide_edge_borders;
 	enum edge_border_smart_types hide_edge_borders_smart;
 	bool hide_lone_tab;
+	enum wlr_edges title_edge;
 
 	// border colors
 	struct {
