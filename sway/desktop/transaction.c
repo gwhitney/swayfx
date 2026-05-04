@@ -286,9 +286,6 @@ static void disable_container(struct sway_container *con) {
 	}
 }
 
-// Size of array to hold edge info
-#define EDGE_LIMIT 5
-
 static void arrange_container(struct sway_container *con,
 		int width, int height, int title_on_edge, int gaps);
 
@@ -303,7 +300,7 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 			struct sway_container *child = children->items[i];
 			enum wlr_edges edge = child->current.title_edge;
 			++child_count_edge[edge];
-			title_on_edge |= (1 << edge);
+			title_on_edge |= edge;
 		}
 	}
 	if (layout == L_TABBED) {
@@ -532,30 +529,22 @@ static void arrange_container(struct sway_container *con,
 			border_width = 0;
 		}
 		int border[EDGE_LIMIT] = {0};
-		if (con->current.border_top
-			&& ((title_on_edge & (1 << WLR_EDGE_TOP)) == 0)
-		) {
+		if (con->current.border_top && (title_on_edge & WLR_EDGE_TOP) == 0) {
 			if ((border[WLR_EDGE_TOP] = border_width)) {
 				wlr_scene_node_set_enabled(&con->border.top->node, true);
 			}
 		}
-		if (con->current.border_bottom
-			&& ((title_on_edge & (1 << WLR_EDGE_BOTTOM)) == 0)
-		) {
+		if (con->current.border_bottom && (title_on_edge & WLR_EDGE_BOTTOM) == 0) {
 			if ((border[WLR_EDGE_BOTTOM] = border_width)) {
 				wlr_scene_node_set_enabled(&con->border.bottom->node, true);
 			}
 		}
-		if (con->current.border_left
-			&& ((title_on_edge & (1 << WLR_EDGE_LEFT)) == 0)
-		) {
+		if (con->current.border_left && (title_on_edge & WLR_EDGE_LEFT) == 0) {
 			if ((border[WLR_EDGE_LEFT] = border_width)) {
 				wlr_scene_node_set_enabled(&con->border.left->node, true);
 			}
 		}
-		if (con->current.border_right
-			&& ((title_on_edge & (1 << WLR_EDGE_RIGHT)) == 0)
-		) {
+		if (con->current.border_right && (title_on_edge & WLR_EDGE_RIGHT) == 0) {
 			if ((border[WLR_EDGE_RIGHT] = border_width)) {
 				wlr_scene_node_set_enabled(&con->border.right->node, true);
 			}
@@ -600,7 +589,7 @@ static void arrange_container(struct sway_container *con,
 			}
 		}
 
-		if (title_on_edge & (1 << WLR_EDGE_TOP)) {
+		if (title_on_edge & WLR_EDGE_TOP) {
 			vert_border_offset = 0;
 		}
 

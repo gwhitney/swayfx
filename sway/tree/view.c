@@ -310,7 +310,6 @@ void view_autoconfigure(struct sway_view *view) {
 
 	con->pending.border_top = con->pending.border_bottom = true;
 	con->pending.border_left = con->pending.border_right = true;
-	double y_offset = 0;
 
 	if (!container_is_floating_or_child(con) && ws) {
 		if (config->hide_edge_borders == E_BOTH
@@ -339,63 +338,80 @@ void view_autoconfigure(struct sway_view *view) {
 		}
 	}
 
+	double y_offset = 0;
+	double x_offset = 0;
+	int n_edge[EDGE_LIMIT] = {0};
+	enum sway_container_layout layout = container_parent_layout(con);
+	bool stacked = layout == L_STACKED;
+	int title_height = container_titlebar_height();
+	const int MAX_STACK = stacked ? 1024 : 1;
+	bool self_titlebar = true;
 	if (!container_is_floating(con)) {
-		// In a tabbed or stacked container, the container's y is the top of the
-		// title area. We have to offset the surface y by the height of the title,
-		// bar, and disable any top border because we'll always have the title bar.
+		// In a tabbed or stacked container, the container's position determines
+		// the title areas. We have to offset the surface position by the heights
+		// of titles on left and top, and disable borders on the edges where the
+		// title bars appear.
 		list_t *siblings = container_get_siblings(con);
 		bool show_titlebar = (siblings && siblings->length > 1)
 			|| !config->hide_lone_tab;
 		if (show_titlebar) {
-			enum sway_container_layout layout = container_parent_layout(con);
-			if (layout == L_TABBED) {
-				y_offset = container_titlebar_height();
-				con->pending.border_top = false;
-			} else if (layout == L_STACKED) {
-				y_offset = container_titlebar_height() * siblings->length;
-				con->pending.border_top = false;
+			if (layout == L_TABBED || stacked) {
+				self_titlebar = false;
+				for (int i = 0; i < siblings->length; ++i) {
+					struct sway_container *sibling = siblings->items[i];
+					enum wlr_edges edge = sibling->pending.title_edge;
+					sway_log(SWAY_DEBUG, "Incrementing %d %d", edge, WLR_EDGE_RIGHT);
+					++n_edge[edge];
+				}
+				sway_log(SWAY_DEBUG, "Sibli %s %d %d %d %d", con->title, n_edge[WLR_EDGE_TOP], n_edge[WLR_EDGE_BOTTOM], n_edge[WLR_EDGE_LEFT], n_edge[WLR_EDGE_RIGHT]);
+				x_offset = title_height * MIN(n_edge[WLR_EDGE_LEFT], MAX_STACK);
+				y_offset = title_height * MIN(n_edge[WLR_EDGE_TOP], MAX_STACK);
+				con->pending.border_top = n_edge[WLR_EDGE_TOP] == 0;
+				con->pending.border_bottom = n_edge[WLR_EDGE_BOTTOM] == 0;
+				con->pending.border_left = n_edge[WLR_EDGE_LEFT] == 0;
+				con->pending.border_right = n_edge[WLR_EDGE_RIGHT] == 0;
+				sway_log(SWAY_DEBUG, "borders %s %s %s %s",
+					con->pending.border_top ? "t" : "f",
+					con->pending.border_bottom ? "t" : "f",
+					con->pending.border_left ? "t" : "f",
+					con->pending.border_right ? "t" : "f");
 			}
 		}
 	}
 
-	double x, y, width, height;
-	switch (con->pending.border) {
-	default:
-	case B_CSD:
-	case B_NONE:
-		x = con->pending.x;
-		y = con->pending.y + y_offset;
-		width = con->pending.width;
-		height = con->pending.height - y_offset;
-		break;
-	case B_PIXEL:
-		x = con->pending.x + con->pending.border_thickness * con->pending.border_left;
-		y = con->pending.y + con->pending.border_thickness * con->pending.border_top + y_offset;
-		width = con->pending.width
-			- con->pending.border_thickness * con->pending.border_left
-			- con->pending.border_thickness * con->pending.border_right;
-		height = con->pending.height - y_offset
-			- con->pending.border_thickness * con->pending.border_top
-			- con->pending.border_thickness * con->pending.border_bottom;
-		break;
-	case B_NORMAL:
-		// Height is: 1px border + 3px pad + title height + 3px pad + 1px border
-		x = con->pending.x + con->pending.border_thickness * con->pending.border_left;
-		width = con->pending.width
-			- con->pending.border_thickness * con->pending.border_left
-			- con->pending.border_thickness * con->pending.border_right;
-		if (y_offset) {
-			y = con->pending.y + y_offset;
-			height = con->pending.height - y_offset
-				- con->pending.border_thickness * con->pending.border_bottom;
-		} else {
-			y = con->pending.y + container_titlebar_height();
-			height = con->pending.height - container_titlebar_height()
-				- con->pending.border_thickness * con->pending.border_bottom;
-		}
-		break;
+	double x = con->pending.x + x_offset;
+	double y = con->pending.y + y_offset;
+	double width = con->pending.width - x_offset
+		- title_height * MIN(n_edge[WLR_EDGE_RIGHT], MAX_STACK);
+	double height = con->pending.height - y_offset
+		- title_height * MIN(n_edge[WLR_EDGE_BOTTOM], MAX_STACK);
+	sway_log(SWAY_DEBUG, "Confa %s %f %f %f %f %s", con->title, x, y, width, height, self_titlebar ? "self" : "parent");
+	if (con->pending.border == B_PIXEL || con->pending.border == B_NORMAL) {
+		x += con->pending.border_thickness * con->pending.border_left;
+		y += con->pending.border_thickness * con->pending.border_top;
+		width -= con->pending.border_thickness * con->pending.border_left
+			+ con->pending.border_thickness * con->pending.border_right;
+		height -= con->pending.border_thickness * con->pending.border_top
+			+ con->pending.border_thickness * con->pending.border_bottom;
 	}
-
+	if (con->pending.border == B_NORMAL && self_titlebar) {
+		switch (con->pending.title_edge) {
+		case WLR_EDGE_TOP:
+			y += title_height;
+			/* FALL THROUGH */
+		case WLR_EDGE_BOTTOM:
+			height -= title_height;
+			break;
+		case WLR_EDGE_LEFT:
+			x += title_height;
+			/* FALL THROUGH */
+		case WLR_EDGE_RIGHT:
+			width -= title_height;
+			break;
+		default:
+		}
+	}
+	sway_log(SWAY_DEBUG, "Confi %s %f %f %f %f %s", con->title, x, y, width, height, self_titlebar ? "self" : "parent");
 	con->pending.content_x = x;
 	con->pending.content_y = y;
 	con->pending.content_width = fmax(width, 1);

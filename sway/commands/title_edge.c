@@ -37,7 +37,7 @@ struct cmd_results *cmd_title_edge(int argc, char **argv) {
 		// now have to update the container's _parent_
 		struct sway_container *parent = container->pending.parent;
 		if (parent) {
-			arrange_container(container);
+			arrange_container(parent);
 		} else {
 			arrange_workspace(config->handler_context.workspace);
 		}

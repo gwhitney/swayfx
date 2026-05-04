@@ -40,6 +40,8 @@ struct sway_view;
 
 enum wlr_direction;
 
+enum {EDGE_LIMIT = WLR_EDGE_RIGHT + 1}; // size of array needed to hold all edges
+
 struct sway_container_state {
 	// Container properties
 	enum sway_container_layout layout;
