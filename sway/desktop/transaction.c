@@ -286,14 +286,26 @@ static void disable_container(struct sway_container *con) {
 	}
 }
 
+// Size of array to hold edge info
+#define EDGE_LIMIT 5
+
 static void arrange_container(struct sway_container *con,
-		int width, int height, bool title_bar, int gaps);
+		int width, int height, int title_on_edge, int gaps);
 
 static void arrange_children(enum sway_container_layout layout, list_t *children,
 		struct sway_container *active, struct wlr_scene_tree *content,
 		int width, int height, int gaps) {
 	int title_bar_height = container_titlebar_height();
-
+	int child_count_edge[EDGE_LIMIT] = {0};
+	int title_on_edge = 0;
+	if (layout == L_TABBED || layout == L_STACKED) {
+		for (int i = 0; i < children->length; ++i) {
+			struct sway_container *child = children->items[i];
+			enum wlr_edges edge = child->current.title_edge;
+			++child_count_edge[edge];
+			title_on_edge |= (1 << edge);
+		}
+	}
 	if (layout == L_TABBED) {
 		struct sway_container *first = children->length == 1 ?
 			((struct sway_container *)children->items[0]) : NULL;
@@ -301,31 +313,72 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 				first->current.border != B_NORMAL) {
 			title_bar_height = 0;
 		}
-
-		double w = (double) width / children->length;
-		int title_offset = 0;
+		int child_x = child_count_edge[WLR_EDGE_LEFT] ? title_bar_height : 0;
+		int child_y = child_count_edge[WLR_EDGE_TOP] ? title_bar_height : 0;
+		int net_height = height;
+		if (child_count_edge[WLR_EDGE_TOP]) {
+			net_height -= title_bar_height;
+		}
+		if (child_count_edge[WLR_EDGE_BOTTOM]) {
+			net_height -= title_bar_height;
+		}
+		int net_width = width;
+		if (child_count_edge[WLR_EDGE_LEFT]) {
+			net_width -= title_bar_height;
+		}
+		if (child_count_edge[WLR_EDGE_RIGHT]) {
+			net_width -= title_bar_height;
+		}
+		int child_n_edge[EDGE_LIMIT] = {0};
 		for (int i = 0; i < children->length; i++) {
 			struct sway_container *child = children->items[i];
 			bool activated = child == active;
-			int next_title_offset = round(w * i + w);
-
-			arrange_title_bar(child, title_offset, -title_bar_height,
-				next_title_offset - title_offset, title_bar_height);
+			int edge = child->current.title_edge;
+			int n_edge = child_n_edge[edge]++;
+			int edge_extent = edge < WLR_EDGE_LEFT ? width : height;
+			int edge_offset = 0;
+			if ((edge == WLR_EDGE_TOP && child_count_edge[WLR_EDGE_LEFT])
+				|| (edge == WLR_EDGE_RIGHT && child_count_edge[WLR_EDGE_TOP])
+				|| (edge == WLR_EDGE_BOTTOM && child_count_edge[WLR_EDGE_RIGHT])
+				|| (edge == WLR_EDGE_RIGHT && child_count_edge[WLR_EDGE_BOTTOM])
+			) {
+				edge_offset = title_bar_height;
+				edge_extent -= edge_offset;
+			}
+			int title_extent = edge_extent / child_count_edge[edge];
+			int title_start = edge_offset + n_edge * title_extent;
+			switch (edge) {
+			case WLR_EDGE_TOP:
+				arrange_title_bar(child, title_start - child_x, -child_y,
+					title_extent, title_bar_height);
+				break;
+			case WLR_EDGE_BOTTOM:
+				arrange_title_bar(child, title_start - child_x, net_height,
+					title_extent, title_bar_height);
+				break;
+			case WLR_EDGE_LEFT:
+				arrange_title_bar(child, -child_x, title_start - child_y,
+					title_bar_height, title_extent);
+				break;
+			case WLR_EDGE_RIGHT:
+				arrange_title_bar(child, net_width, title_start - child_y,
+					title_bar_height, title_extent);
+				break;
+			default:
+			}
 			wlr_scene_node_set_enabled(&child->border.tree->node, activated);
 			wlr_scene_node_set_enabled(&child->blur->node, activated);
 			wlr_scene_node_set_enabled(&child->shadow->node, false);
 			wlr_scene_node_set_enabled(&child->scene_tree->node, true);
-			wlr_scene_node_set_position(&child->scene_tree->node, 0, title_bar_height);
+			wlr_scene_node_set_position(&child->scene_tree->node, child_x, child_y);
 			wlr_scene_node_reparent(&child->scene_tree->node, content);
 
-			int net_height = height - title_bar_height;
-			if (activated && width > 0 && net_height > 0) {
-				arrange_container(child, width, net_height, title_bar_height == 0, 0);
+			if (activated && net_width > 0 && net_height > 0) {
+				sway_log(SWAY_DEBUG, "subarrange %s %d %d %d %d", child->title, title_bar_height, height, net_height, title_on_edge);
+				arrange_container(child, net_width, net_height, title_on_edge, 0);
 			} else {
 				disable_container(child);
 			}
-
-			title_offset = next_title_offset;
 		}
 	} else if (layout == L_STACKED) {
 		struct sway_container *first = children->length == 1 ?
@@ -403,7 +456,8 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 }
 
 static void arrange_container(struct sway_container *con,
-		int width, int height, bool title_bar, int gaps) {
+		int width, int height, int title_on_edge, int gaps) {
+	bool title_bar = title_on_edge == 0;
 	// this container might have previously been in the scratchpad,
 	// make sure it's enabled for viewing
 	wlr_scene_node_set_enabled(&con->scene_tree->node, true);
@@ -471,54 +525,96 @@ static void arrange_container(struct sway_container *con,
 
 	if (con->view) {
 		int corner_radius = has_corner_radius ? con->corner_radius : 0;
-		int border_top = container_titlebar_height();
+		int title_bar_height = container_titlebar_height();
 		int border_width = con->current.border_thickness;
+
+		if (con->current.border == B_NONE || con->current.border == B_CSD) {
+			border_width = 0;
+		}
+		int border[EDGE_LIMIT] = {0};
+		if (con->current.border_top
+			&& ((title_on_edge & (1 << WLR_EDGE_TOP)) == 0)
+		) {
+			if ((border[WLR_EDGE_TOP] = border_width)) {
+				wlr_scene_node_set_enabled(&con->border.top->node, true);
+			}
+		}
+		if (con->current.border_bottom
+			&& ((title_on_edge & (1 << WLR_EDGE_BOTTOM)) == 0)
+		) {
+			if ((border[WLR_EDGE_BOTTOM] = border_width)) {
+				wlr_scene_node_set_enabled(&con->border.bottom->node, true);
+			}
+		}
+		if (con->current.border_left
+			&& ((title_on_edge & (1 << WLR_EDGE_LEFT)) == 0)
+		) {
+			if ((border[WLR_EDGE_LEFT] = border_width)) {
+				wlr_scene_node_set_enabled(&con->border.left->node, true);
+			}
+		}
+		if (con->current.border_right
+			&& ((title_on_edge & (1 << WLR_EDGE_RIGHT)) == 0)
+		) {
+			if ((border[WLR_EDGE_RIGHT] = border_width)) {
+				wlr_scene_node_set_enabled(&con->border.right->node, true);
+			}
+		}
+
 		int vert_border_offset = corner_radius;
 
-		if (title_bar && con->current.border != B_NORMAL) {
-			wlr_scene_node_set_enabled(&con->title_bar.tree->node, false);
-			wlr_scene_node_set_enabled(&con->border.top->node, true);
-		} else {
-			wlr_scene_node_set_enabled(&con->border.top->node, false);
-		}
-
-		if (con->current.border == B_NORMAL) {
-			vert_border_offset = 0;
-			if (title_bar) {
-				arrange_title_bar(con, 0, 0, width, border_top);
-			} else {
-				border_top = 0;
-				// should be handled by the parent container
+		// Arrange the title bar, turning off the corresponding border
+		if (title_bar) {
+			if (con->current.border == B_NORMAL) {
+				wlr_scene_node_set_enabled(&con->title_bar.tree->node, true);
+				enum wlr_edges edge = con->current.title_edge;
+				border[edge] = title_bar_height;
+				switch (edge) {
+				case WLR_EDGE_TOP:
+					wlr_scene_node_set_enabled(&con->border.top->node, false);
+					arrange_title_bar(con, 0, 0, width, title_bar_height);
+					vert_border_offset = 0;
+					break;
+				case WLR_EDGE_BOTTOM:
+					wlr_scene_node_set_enabled(&con->border.bottom->node, false);
+					arrange_title_bar(con, 0, height - title_bar_height,
+						width, title_bar_height);
+					break;
+				case WLR_EDGE_LEFT:
+					wlr_scene_node_set_enabled(&con->border.left->node, false);
+					arrange_title_bar(con, 0, 0, title_bar_height, width);
+					break;
+				case WLR_EDGE_RIGHT:
+					wlr_scene_node_set_enabled(&con->border.right->node, false);
+					arrange_title_bar(con, width - title_bar_height, 0,
+						width, title_bar_height);
+					break;
+				default:
+				}
+                        } else {
+				wlr_scene_node_set_enabled(&con->title_bar.tree->node, false);
 			}
-		} else if (con->current.border == B_PIXEL) {
-			container_update(con);
-			border_top = title_bar && con->current.border_top ? border_width : 0;
-			if (!title_bar && !con->current.border_top) {
+		} else {
+			if (!con->current.border_top) {
 				vert_border_offset = 0;
 			}
-		} else if (con->current.border == B_NONE) {
-			container_update(con);
-			border_top = 0;
-			border_width = 0;
-		} else if (con->current.border == B_CSD) {
-			border_top = 0;
-			border_width = 0;
-		} else {
-			sway_assert(false, "unreachable");
 		}
 
-		int border_bottom = con->current.border_bottom ? border_width : 0;
-		int border_left = con->current.border_left ? border_width : 0;
-		int border_right = con->current.border_right ? border_width : 0;
+		if (title_on_edge & (1 << WLR_EDGE_TOP)) {
+			vert_border_offset = 0;
+		}
 
+		int border_top = border[WLR_EDGE_TOP];
+		int border_bottom = border[WLR_EDGE_BOTTOM];
+		int border_left = border[WLR_EDGE_LEFT];
+		int border_right = border[WLR_EDGE_RIGHT];
 		int vert_border_height = MAX(0, height - border_top - border_bottom - vert_border_offset - corner_radius);
 		wlr_scene_rect_set_size(con->border.left, border_left, vert_border_height);
 		wlr_scene_rect_set_size(con->border.right, border_right, vert_border_height);
-
+		int border_cr = has_corner_radius ? corner_radius + border_width : 0;
 		if (border_top) {
 			wlr_scene_rect_set_size(con->border.top, width, border_top + corner_radius);
-			wlr_scene_rect_set_corner_radii(con->border.top, corner_radii_top(!has_corner_radius ? 0 :
-					corner_radius + border_width));
+			wlr_scene_rect_set_corner_radii(con->border.top, corner_radii_top(border_cr));
 			wlr_scene_rect_set_clipped_region(con->border.top, (struct clipped_region) {
 				.corners = corner_radii_top(corner_radius),
 				.area = {
@@ -531,12 +627,9 @@ static void arrange_container(struct sway_container *con,
 		} else {
 			wlr_scene_rect_set_size(con->border.top, 0, 0);
 		}
-
 		if (border_bottom) {
 			wlr_scene_rect_set_size(con->border.bottom, width, border_bottom + corner_radius);
-			wlr_scene_rect_set_corner_radii(con->border.bottom, corner_radii_bottom(!has_corner_radius ? 0 :
-					corner_radius + border_width));
-
+			wlr_scene_rect_set_corner_radii(con->border.bottom, corner_radii_bottom(border_cr));
 			wlr_scene_rect_set_clipped_region(con->border.bottom, (struct clipped_region) {
 				.corners = corner_radii_bottom(corner_radius),
 				// shift up one px to fix https://github.com/WillPower3309/swayfx/issues/386
@@ -545,7 +638,7 @@ static void arrange_container(struct sway_container *con,
 					.x = border_width,
 					.y = -1,
 					.width = width - 2 * border_width,
-					.height = border_bottom - border_width + corner_radius + 1,
+					.height = border_bottom - border_width + corner_radius + 1
 				}
 			});
 		} else {
