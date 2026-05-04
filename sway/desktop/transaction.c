@@ -371,7 +371,6 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 			wlr_scene_node_reparent(&child->scene_tree->node, content);
 
 			if (activated && net_width > 0 && net_height > 0) {
-				sway_log(SWAY_DEBUG, "subarrange %s %d %d %d %d", child->title, title_bar_height, height, net_height, title_on_edge);
 				arrange_container(child, net_width, net_height, title_on_edge, 0);
 			} else {
 				disable_container(child);
@@ -385,29 +384,50 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 			title_bar_height = 0;
 		}
 
-		int title_height = title_bar_height * children->length;
-
-		int y = 0;
+		int child_x = title_bar_height * child_count_edge[WLR_EDGE_LEFT];
+		int child_y = title_bar_height * child_count_edge[WLR_EDGE_TOP];
+		int extra_x = title_bar_height * child_count_edge[WLR_EDGE_RIGHT];
+		int extra_y = title_bar_height * child_count_edge[WLR_EDGE_BOTTOM];
+		int net_width = width - child_x - extra_x;
+		int net_height = height - child_y - extra_y;
+		int child_n_edge[EDGE_LIMIT] = {0};
 		for (int i = 0; i < children->length; i++) {
 			struct sway_container *child = children->items[i];
 			bool activated = child == active;
+			int edge = child->current.title_edge;
+			int n_edge = child_n_edge[edge]++;
+			switch (edge) {
+			case WLR_EDGE_TOP:
+				arrange_title_bar(child, 0, n_edge * title_bar_height - child_y,
+					width - child_x, title_bar_height);
+				break;
+			case WLR_EDGE_BOTTOM:
+				arrange_title_bar(child, -child_x, net_height + n_edge * title_bar_height,
+					width - extra_x, title_bar_height);
+				break;
+			case WLR_EDGE_LEFT:
+				arrange_title_bar(child, n_edge * title_bar_height - child_x, -child_y,
+					title_bar_height, height - extra_y);
+				break;
+			case WLR_EDGE_RIGHT:
+				arrange_title_bar(child, net_width + n_edge * title_bar_height, 0,
+					title_bar_height, height - child_y);
+				break;
+			default:
+			}
 
-			arrange_title_bar(child, 0, y - title_height, width, title_bar_height);
 			wlr_scene_node_set_enabled(&child->border.tree->node, activated);
 			wlr_scene_node_set_enabled(&child->blur->node, activated);
 			wlr_scene_node_set_enabled(&child->shadow->node, false);
 			wlr_scene_node_set_enabled(&child->scene_tree->node, true);
-			wlr_scene_node_set_position(&child->scene_tree->node, 0, title_height);
+			wlr_scene_node_set_position(&child->scene_tree->node, child_x, child_y);
 			wlr_scene_node_reparent(&child->scene_tree->node, content);
 
-			int net_height = height - title_height;
-			if (activated && width > 0 && net_height > 0) {
-				arrange_container(child, width, net_height, title_bar_height == 0, 0);
+			if (activated && net_width > 0 && net_height > 0) {
+				arrange_container(child, net_width, net_height, title_on_edge, 0);
 			} else {
 				disable_container(child);
 			}
-
-			y += title_bar_height;
 		}
 	} else if (layout == L_VERT) {
 		int off = 0;

@@ -479,6 +479,7 @@ void container_arrange_title_bar(struct sway_container *con) {
 		uint16_t *first_corner = NULL;
 		uint16_t *last_corner = NULL;
 		bool previous_blocks_first = true;
+		int outer_pos = 0;
 		switch (this_edge) {
 		case WLR_EDGE_TOP:
 			previous_edge = WLR_EDGE_LEFT;
@@ -488,6 +489,7 @@ void container_arrange_title_bar(struct sway_container *con) {
 		case WLR_EDGE_BOTTOM:
 			previous_edge = WLR_EDGE_RIGHT;
 			previous_blocks_first = false;
+			outer_pos = n_edge[this_edge] - 1;
 			first_corner = &(corners.bottom_left);
 			last_corner = &(corners.bottom_right);
 			break;
@@ -499,6 +501,7 @@ void container_arrange_title_bar(struct sway_container *con) {
 			break;
 		case WLR_EDGE_RIGHT:
 			previous_edge = WLR_EDGE_TOP;
+			outer_pos = n_edge[this_edge] - 1;
 			first_corner = &(corners.top_right);
 			last_corner = &(corners.bottom_right);
 			break;
@@ -512,8 +515,11 @@ void container_arrange_title_bar(struct sway_container *con) {
 			break;
 		}
 		bool has_first_corner = pos_on_edge == 0;
-		bool has_last_corner = (layout == L_STACKED && pos_on_edge == 0)
-			|| (layout == L_TABBED && pos_on_edge == n_edge[this_edge] - 1);
+		bool has_last_corner = pos_on_edge == n_edge[this_edge] - 1;
+		if (layout == L_STACKED) {
+			has_first_corner = pos_on_edge == outer_pos;
+			has_last_corner = pos_on_edge == outer_pos;
+		}
 		if (n_edge[previous_edge]) {
 			if (previous_blocks_first) {
 				has_first_corner = false;
