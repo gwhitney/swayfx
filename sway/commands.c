@@ -109,6 +109,7 @@ static const struct cmd_handler handlers[] = {
 	{ "smart_borders", cmd_smart_borders },
 	{ "smart_corner_radius", cmd_smart_corner_radius },
 	{ "smart_gaps", cmd_smart_gaps },
+	{ "tab_rounding", cmd_tab_rounding },
 	{ "tiling_drag", cmd_tiling_drag },
 	{ "tiling_drag_threshold", cmd_tiling_drag_threshold },
 	{ "title_align", cmd_title_align },

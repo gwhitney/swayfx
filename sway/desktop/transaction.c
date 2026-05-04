@@ -551,6 +551,7 @@ static void arrange_container(struct sway_container *con,
 		}
 
 		int vert_border_offset = corner_radius;
+		int bottom_corner_allowance = corner_radius;
 
 		// Arrange the title bar, turning off the corresponding border
 		if (title_bar) {
@@ -568,6 +569,7 @@ static void arrange_container(struct sway_container *con,
 					wlr_scene_node_set_enabled(&con->border.bottom->node, false);
 					arrange_title_bar(con, 0, height - title_bar_height,
 						width, title_bar_height);
+					bottom_corner_allowance = 0;
 					break;
 				case WLR_EDGE_LEFT:
 					wlr_scene_node_set_enabled(&con->border.left->node, false);
@@ -587,6 +589,9 @@ static void arrange_container(struct sway_container *con,
 			if (!con->current.border_top) {
 				vert_border_offset = 0;
 			}
+			if (!con->current.border_bottom) {
+				bottom_corner_allowance = 0;
+			}
 		}
 
 		if (title_on_edge & WLR_EDGE_TOP) {
@@ -597,7 +602,8 @@ static void arrange_container(struct sway_container *con,
 		int border_bottom = border[WLR_EDGE_BOTTOM];
 		int border_left = border[WLR_EDGE_LEFT];
 		int border_right = border[WLR_EDGE_RIGHT];
-		int vert_border_height = MAX(0, height - border_top - border_bottom - vert_border_offset - corner_radius);
+		int vert_border_height = MAX(0,
+			height - border_top - border_bottom - vert_border_offset - bottom_corner_allowance);
 		wlr_scene_rect_set_size(con->border.left, border_left, vert_border_height);
 		wlr_scene_rect_set_size(con->border.right, border_right, vert_border_height);
 		int border_cr = has_corner_radius ? corner_radius + border_width : 0;

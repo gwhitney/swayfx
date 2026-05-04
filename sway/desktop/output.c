@@ -301,7 +301,7 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 				}
 			}
 		} else if (wlr_subsurface_try_from_wlr_surface(surface->surface)) {
-			wlr_scene_buffer_set_corner_radii(buffer, corner_radii_all(buffer_corner_radius));
+			wlr_scene_buffer_set_corner_radii(buffer, buffer_corners);
 		} else if ((layer_surface = wlr_layer_surface_v1_try_from_wlr_surface(surface->surface))
 				&& layer_surface->data) {
 			// Layer effects

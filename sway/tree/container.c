@@ -427,8 +427,7 @@ void container_arrange_title_bar(struct sway_container *con) {
 	int thickness = config->titlebar_border_thickness;
 	int background_corner_radius = container_has_corner_radius(con) ?
 			con->corner_radius + con->current.border_thickness - thickness : 0;
-	struct fx_corner_radii corners = corner_radii_top(background_corner_radius);
-
+	struct fx_corner_radii corners = corner_radii_none();
 	enum sway_container_layout layout;
 	const list_t *siblings;
 	if (con->current.parent) {
@@ -438,20 +437,95 @@ void container_arrange_title_bar(struct sway_container *con) {
 		layout = con->current.workspace->layout;
 		siblings = con->current.workspace->tiling;
 	}
-
-	if (con->current.parent || con->current.workspace) {
-		if (layout == L_TABBED && siblings->length > 1) {
-			if (siblings->items[0] == con) {
-				corners.top_right = 0;
-			} else if (siblings->items[siblings->length - 1] == con) {
-				corners.top_left = 0;
-			} else {
-				background_corner_radius = 0;
-				corners = corner_radii_none();
+	if ((config->tab_rounding == TAB_ALL && layout != L_STACKED)
+		|| (config->tab_rounding == TAB_CORNER
+			&& layout != L_TABBED && layout != L_STACKED)
+	) {
+		switch (con->current.title_edge) {
+		case WLR_EDGE_BOTTOM:
+			corners = corner_radii_bottom(background_corner_radius);
+			break;
+		case WLR_EDGE_LEFT:
+			corners = corner_radii_left(background_corner_radius);
+			break;
+		case WLR_EDGE_RIGHT:
+			corners = corner_radii_right(background_corner_radius);
+			break;
+		default:
+			corners = corner_radii_top(background_corner_radius);
+		}
+	} else if (config->tab_rounding != TAB_NONE) {
+		// Here we are tabbed or stacked. So we need to know how
+		// many tabs there are on each side, and which one we are
+		// on the side we're on:
+		int n_edge[EDGE_LIMIT] = {0};
+		int pos_on_edge = -1;
+		for (int i = 0; i < siblings->length; ++i) {
+			struct sway_container *sibling = siblings->items[i];
+			enum wlr_edges edge = sibling->current.title_edge;
+			if (sibling == con) {
+				pos_on_edge = n_edge[edge];
 			}
-		} else if (layout == L_STACKED && siblings->items[0] != con) {
-			background_corner_radius = 0;
-			corners = corner_radii_none();
+			++n_edge[edge];
+		}
+		if (pos_on_edge < 0) {
+			sway_log(SWAY_ERROR,
+				"Container titled '%s' not self sibling!",
+				con->title ? con->title : "<no title>");
+			pos_on_edge = 0;
+		}
+		enum wlr_edges this_edge = con->current.title_edge;
+		enum wlr_edges previous_edge = WLR_EDGE_NONE;
+		uint16_t *first_corner = NULL;
+		uint16_t *last_corner = NULL;
+		bool previous_blocks_first = true;
+		switch (this_edge) {
+		case WLR_EDGE_TOP:
+			previous_edge = WLR_EDGE_LEFT;
+			first_corner = &(corners.top_left);
+			last_corner = &(corners.top_right);
+			break;
+		case WLR_EDGE_BOTTOM:
+			previous_edge = WLR_EDGE_RIGHT;
+			previous_blocks_first = false;
+			first_corner = &(corners.bottom_left);
+			last_corner = &(corners.bottom_right);
+			break;
+		case WLR_EDGE_LEFT:
+			previous_edge = WLR_EDGE_BOTTOM;
+			previous_blocks_first = false;
+			first_corner = &(corners.top_left);
+			last_corner = &(corners.bottom_left);
+			break;
+		case WLR_EDGE_RIGHT:
+			previous_edge = WLR_EDGE_TOP;
+			first_corner = &(corners.top_right);
+			last_corner = &(corners.bottom_right);
+			break;
+		default:
+			sway_log(SWAY_ERROR,
+				"Unknown title_edge %d on container titled '%s'",
+				this_edge, con->title ? con->title : "<no title>");
+			previous_edge = WLR_EDGE_LEFT;
+			first_corner = &(corners.top_left);
+			last_corner = &(corners.top_right);
+			break;
+		}
+		bool has_first_corner = pos_on_edge == 0;
+		bool has_last_corner = (layout == L_STACKED && pos_on_edge == 0)
+			|| (layout == L_TABBED && pos_on_edge == n_edge[this_edge] - 1);
+		if (n_edge[previous_edge]) {
+			if (previous_blocks_first) {
+				has_first_corner = false;
+			} else {
+				has_last_corner = false;
+			}
+		}
+		if (has_first_corner) {
+			*first_corner = background_corner_radius;
+		}
+		if (has_last_corner) {
+			*last_corner = background_corner_radius;
 		}
 	}
 

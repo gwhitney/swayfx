@@ -1002,6 +1002,13 @@ The default colors are:
 	Adjusts the opacity of the window between 0 (completely transparent) and
 	1 (completely opaque). If the operation is omitted, _set_ will be used.
 
+*tab_rounding* corner|all|none
+	Sets which corners of a tab/titlebar are rounded with the current
+	_corner_radius_. The default value _corner_ means just those at the
+	outermost corners of the container/window. The _all_ value means both
+	both corners of any tab/titlebar away from the enclosed content, and
+	_none_ means never round tabs/titlebars, even if a _corner_radius_ is set.
+
 *tiling_drag*  enable|disable|toggle
 	Sets whether or not tiling containers can be dragged with the mouse. If
 	_enabled_ (default), the _floating_mod_ can be used to drag tiling, as well
