@@ -360,21 +360,14 @@ void view_autoconfigure(struct sway_view *view) {
 				for (int i = 0; i < siblings->length; ++i) {
 					struct sway_container *sibling = siblings->items[i];
 					enum wlr_edges edge = sibling->pending.title_edge;
-					sway_log(SWAY_DEBUG, "Incrementing %d %d", edge, WLR_EDGE_RIGHT);
 					++n_edge[edge];
 				}
-				sway_log(SWAY_DEBUG, "Sibli %s %d %d %d %d", con->title, n_edge[WLR_EDGE_TOP], n_edge[WLR_EDGE_BOTTOM], n_edge[WLR_EDGE_LEFT], n_edge[WLR_EDGE_RIGHT]);
 				x_offset = title_height * MIN(n_edge[WLR_EDGE_LEFT], MAX_STACK);
 				y_offset = title_height * MIN(n_edge[WLR_EDGE_TOP], MAX_STACK);
 				con->pending.border_top = n_edge[WLR_EDGE_TOP] == 0;
 				con->pending.border_bottom = n_edge[WLR_EDGE_BOTTOM] == 0;
 				con->pending.border_left = n_edge[WLR_EDGE_LEFT] == 0;
 				con->pending.border_right = n_edge[WLR_EDGE_RIGHT] == 0;
-				sway_log(SWAY_DEBUG, "borders %s %s %s %s",
-					con->pending.border_top ? "t" : "f",
-					con->pending.border_bottom ? "t" : "f",
-					con->pending.border_left ? "t" : "f",
-					con->pending.border_right ? "t" : "f");
 			}
 		}
 	}
@@ -385,7 +378,6 @@ void view_autoconfigure(struct sway_view *view) {
 		- title_height * MIN(n_edge[WLR_EDGE_RIGHT], MAX_STACK);
 	double height = con->pending.height - y_offset
 		- title_height * MIN(n_edge[WLR_EDGE_BOTTOM], MAX_STACK);
-	sway_log(SWAY_DEBUG, "Confa %s %f %f %f %f %s", con->title, x, y, width, height, self_titlebar ? "self" : "parent");
 	if (con->pending.border == B_PIXEL || con->pending.border == B_NORMAL) {
 		x += con->pending.border_thickness * con->pending.border_left;
 		y += con->pending.border_thickness * con->pending.border_top;
@@ -411,7 +403,6 @@ void view_autoconfigure(struct sway_view *view) {
 		default:
 		}
 	}
-	sway_log(SWAY_DEBUG, "Confi %s %f %f %f %f %s", con->title, x, y, width, height, self_titlebar ? "self" : "parent");
 	con->pending.content_x = x;
 	con->pending.content_y = y;
 	con->pending.content_width = fmax(width, 1);
