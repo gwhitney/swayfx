@@ -340,10 +340,9 @@ void view_autoconfigure(struct sway_view *view) {
 
 	int n_edge[EDGE_LIMIT] = {0};
 	enum sway_container_layout layout = container_parent_layout(con);
-	bool stacked = layout == L_STACKED;
 	int title_height = container_titlebar_height();
 	bool self_titlebar = true;
-	if (!container_is_floating(con) && (stacked || layout == L_TABBED)) {
+	if (!container_is_floating(con) && (layout == L_TABBED || layout == L_STACKED)) {
 		// In a tabbed or stacked container, the container is usually responsible
 		// for the title areas. If so, we need to disable borders on the edges
 		// where the title bars appear.
@@ -363,14 +362,6 @@ void view_autoconfigure(struct sway_view *view) {
 			con->pending.border_right = n_edge[WLR_EDGE_RIGHT] == 0;
 		}
 	}
-	sway_log(SWAY_DEBUG, "View %s: title %s, %d %d %d %d so %s %s %s %s",
-		con->title, self_titlebar ? "self" : "parent",
-		n_edge[WLR_EDGE_TOP], n_edge[WLR_EDGE_BOTTOM],
-		n_edge[WLR_EDGE_LEFT], n_edge[WLR_EDGE_RIGHT],
-		con->pending.border_top ? "t" : "f",
-		con->pending.border_bottom ? "t" : "f",
-		con->pending.border_left ? "t" : "f",
-		con->pending.border_right ? "t" : "f");
 
 	double x = con->pending.x;
 	double y = con->pending.y;

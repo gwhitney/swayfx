@@ -17,18 +17,6 @@ static enum wlr_edges parse_edge_string(char* s) {
 	return WLR_EDGE_NONE;
 }
 
-static void dump_containers(list_t *cons, int indent) {
-  if (!cons) return;
-  for (int i = 0; i < cons->length; ++i) {
-    struct sway_container *con = cons->items[i];
-    sway_log(SWAY_DEBUG, "%*sCon %s: %f %f %f %f / %f %f %f %f", indent, "",  
-             con->formatted_title ? con->formatted_title : con->title ? con->title : "<unknown>",
-             con->pending.x, con->pending.y, con->pending.width, con->pending.height,
-             con->pending.content_x, con->pending.content_y, con->pending.content_width, con->pending.content_height);
-    dump_containers(con->pending.children, indent + 2);
-  }
-}
-
 struct cmd_results *cmd_title_edge(int argc, char **argv) {
 	struct cmd_results *error = NULL;
 	if ((error = checkarg(argc, "title_edge", EXPECTED_EQUAL_TO, 1))) {
@@ -57,6 +45,6 @@ struct cmd_results *cmd_title_edge(int argc, char **argv) {
 			arrange_workspace(config->handler_context.workspace);
 		}
 	}
-	dump_containers(config->handler_context.workspace->tiling, 0);
+
 	return cmd_results_new(CMD_SUCCESS, NULL);
 }

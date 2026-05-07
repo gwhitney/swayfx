@@ -91,7 +91,7 @@ static void render_backing_buffer(struct text_buffer *buffer) {
 		cairo_font_options_set_subpixel_order(fo, to_cairo_subpixel_order(subpixel));
 	}
 
-        bool vertical = buffer->props.vertical;
+	bool vertical = buffer->props.vertical;
 	cairo_surface_t *surface = NULL;
 	if (vertical) {
 		surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, height, width);
@@ -326,8 +326,7 @@ void sway_text_node_set_vertical(struct sway_text_node *node, bool vertical) {
 		return;
 	}
 	struct text_buffer *buffer = wl_container_of(node, buffer, props);
-	sway_log(SWAY_DEBUG, "Rerendering %s as %s", buffer->text, vertical ? "vert" : "horz");
 	buffer->props.vertical = vertical;
-        set_dest_size(buffer);
+	set_dest_size(buffer);
 	render_backing_buffer(buffer);
 }

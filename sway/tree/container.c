@@ -362,11 +362,10 @@ void container_arrange_title_bar(struct sway_container *con) {
 	int marks_buffer_width = 0;
 	int width = con->title_width;
 	int height = container_titlebar_height();
-        sway_log(SWAY_DEBUG, "TB START %s %d %d", con->title, width, height);
 	enum wlr_edges edge = con->current.title_edge;
 	bool vertical = edge == WLR_EDGE_LEFT || edge == WLR_EDGE_RIGHT;
 
-	struct wlr_box text_box = { 0, 0, 0, 0 };
+	struct wlr_box text_box = { 0, 0, 0, 0 }; // used to clip the rightmost text exactly
 
 	if (con->title_bar.marks_text) {
 		struct sway_text_node *node = con->title_bar.marks_text;
@@ -386,28 +385,29 @@ void container_arrange_title_bar(struct sway_container *con) {
 		alloc_width = MAX(alloc_width, 0);
 
 		sway_text_node_set_max_width(node, alloc_width);
-                sway_text_node_set_vertical(node, vertical);
+		sway_text_node_set_vertical(node, vertical);
 
 		int v_padding = (height - node->height) >> 1;
 		if (vertical) {
 			wlr_scene_node_set_position(node->node, v_padding, h_padding);
 		} else {
 			wlr_scene_node_set_position(node->node, h_padding, v_padding);
-                }
+		}
 
 		text_box.x = node->node->x;
 		text_box.y = node->node->y;
 		text_box.width = alloc_width;
 		text_box.height = node->height;
-		sway_log(SWAY_DEBUG, "TB MARKS %s %d %d %d %d", con->title, text_box.x, text_box.y, text_box.width, text_box.height);
 	}
 
 	if (con->title_bar.title_text) {
 		struct sway_text_node *node = con->title_bar.title_text;
 
 		int h_padding;
+		bool update_text_box = false;
 		if (title_align == ALIGN_RIGHT) {
 			h_padding = width - config->titlebar_h_padding - node->width;
+			update_text_box = true;
 		} else if (title_align == ALIGN_CENTER) {
 			h_padding = ((int)width - marks_buffer_width - node->width) >> 1;
 		} else {
@@ -420,22 +420,22 @@ void container_arrange_title_bar(struct sway_container *con) {
 			width - h_padding - config->titlebar_h_padding);
 		alloc_width = MAX(alloc_width, 0);
 
-		sway_log(SWAY_DEBUG, "TB alloc_width %s %d", con->title, alloc_width);
 		sway_text_node_set_max_width(node, alloc_width);
-                sway_text_node_set_vertical(node, vertical);
+		sway_text_node_set_vertical(node, vertical);
 
 		int v_padding = (height - node->height) >> 1;
 		if (vertical) {
 			wlr_scene_node_set_position(node->node, v_padding, h_padding);
 		} else {
 			wlr_scene_node_set_position(node->node, h_padding, v_padding);
-                }
+		}
 
-		text_box.x = MAX(text_box.x, node->node->x);
-		text_box.y = MAX(text_box.y, node->node->y);
-		text_box.width = MAX(text_box.width, alloc_width);
-		text_box.height = MAX(text_box.height, node->height);
-		sway_log(SWAY_DEBUG, "TB TITLE %s %d %d %d %d", con->title, text_box.x, text_box.y, text_box.width, text_box.height);
+		if (update_text_box) {
+			text_box.x = node->node->x;
+			text_box.y = node->node->y;
+			text_box.width = alloc_width;
+			text_box.height = node->height;
+		}
 	}
 
 	if (width <= 0 || height <= 0) {
@@ -446,7 +446,6 @@ void container_arrange_title_bar(struct sway_container *con) {
 		text_box.width = text_box.height;
 		text_box.height = temp;
 	}
-	sway_log(SWAY_DEBUG, "TB TB %s %d %d", con->title, text_box.width, text_box.height);
 	int thickness = config->titlebar_border_thickness;
 	int background_corner_radius = container_has_corner_radius(con) ?
 			con->corner_radius + con->current.border_thickness - thickness : 0;
@@ -559,8 +558,8 @@ void container_arrange_title_bar(struct sway_container *con) {
 	}
 
 	wlr_scene_node_set_position(&con->title_bar.background->node, thickness, thickness);
-        int back_width = width - thickness * 2;
-        int back_height = height - thickness * (config->titlebar_separator ? 2 : 1);
+	int back_width = width - thickness * 2;
+	int back_height = height - thickness * (config->titlebar_separator ? 2 : 1);
 	if (vertical) {
 		int temp = back_width;
 		back_width = back_height;
@@ -582,7 +581,6 @@ void container_arrange_title_bar(struct sway_container *con) {
 		wlr_scene_rect_set_size(con->title_bar.border, width, height);
 	}
 	wlr_scene_rect_set_corner_radii(con->title_bar.border, fx_corner_radii_extend(corners, thickness));
-	sway_log(SWAY_DEBUG, "TB BACK %s %d %d fullwidth %d", con->title, con->title_bar.background->width, con->title_bar.background->height, width);
 	wlr_scene_rect_set_clipped_region(con->title_bar.border, (struct clipped_region) {
 			.corners = corners,
 			.area = {

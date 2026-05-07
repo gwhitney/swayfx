@@ -338,11 +338,14 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 			int edge_offset = 0;
 			if ((edge == WLR_EDGE_TOP && child_count_edge[WLR_EDGE_LEFT])
 				|| (edge == WLR_EDGE_RIGHT && child_count_edge[WLR_EDGE_TOP])
-				|| (edge == WLR_EDGE_BOTTOM && child_count_edge[WLR_EDGE_RIGHT])
-				|| (edge == WLR_EDGE_RIGHT && child_count_edge[WLR_EDGE_BOTTOM])
 			) {
 				edge_offset = title_bar_height;
 				edge_extent -= edge_offset;
+			}
+			if ((edge == WLR_EDGE_BOTTOM && child_count_edge[WLR_EDGE_RIGHT])
+				|| (edge == WLR_EDGE_LEFT && child_count_edge[WLR_EDGE_BOTTOM])
+			) {
+				edge_extent -= title_bar_height;
 			}
 			int title_extent = edge_extent / child_count_edge[edge];
 			int title_start = edge_offset + n_edge * title_extent;
@@ -627,49 +630,84 @@ static void arrange_container(struct sway_container *con,
 		int border_right = border[WLR_EDGE_RIGHT];
 		int vert_border_height = MAX(0,
 			height - border_top - border_bottom - vert_border_offset - bottom_corner_allowance);
+		wlr_scene_node_set_position(&con->border.left->node,
+			0, border_top + vert_border_offset);
 		wlr_scene_rect_set_size(con->border.left, border_left, vert_border_height);
+		wlr_scene_node_set_position(&con->border.right->node,
+			width - border_right, border_top + vert_border_offset);
 		wlr_scene_rect_set_size(con->border.right, border_right, vert_border_height);
 		int border_cr = has_corner_radius ? corner_radius + border_width : 0;
 		if (border_top) {
-			wlr_scene_rect_set_size(con->border.top, width, border_top + corner_radius);
-			wlr_scene_rect_set_corner_radii(con->border.top, corner_radii_top(border_cr));
-			wlr_scene_rect_set_clipped_region(con->border.top, (struct clipped_region) {
-				.corners = corner_radii_top(corner_radius),
-				.area = {
-					.x = border_width,
-					.y = border_width,
-					.width = width - 2 * border_width,
-					.height = border_top + corner_radius
+			wlr_scene_node_set_position(&con->border.top->node, 0, 0);
+			if (!border_left && !border_right) { // no corners, so just a rect
+				wlr_scene_rect_set_size(con->border.top, width, border_top);
+				wlr_scene_rect_set_corner_radii(con->border.top, corner_radii_none());
+				wlr_scene_rect_set_clipped_region(con->border.top,
+					clipped_region_get_default());
+			} else {
+				struct fx_corner_radii outer_corners = corner_radii_top(border_cr);
+				struct fx_corner_radii inner_corners = corner_radii_top(corner_radius);
+				if (!border_left) {
+					outer_corners.top_left = 0;
+					inner_corners.top_left = 0;
 				}
-			});
+				if (!border_right) {
+					outer_corners.top_right = 0;
+					inner_corners.top_right = 0;
+				}
+				wlr_scene_rect_set_size(con->border.top, width, border_top + corner_radius);
+				wlr_scene_rect_set_corner_radii(con->border.top, outer_corners);
+				wlr_scene_rect_set_clipped_region(con->border.top, (struct clipped_region) {
+					.corners = inner_corners,
+					.area = {
+						.x = border_left,
+						.y = border_width,
+						.width = width - border_left - border_right,
+						.height = border_top + corner_radius
+					}
+				});
+			}
 		} else {
 			wlr_scene_rect_set_size(con->border.top, 0, 0);
 		}
 		if (border_bottom) {
-			wlr_scene_rect_set_size(con->border.bottom, width, border_bottom + corner_radius);
-			wlr_scene_rect_set_corner_radii(con->border.bottom, corner_radii_bottom(border_cr));
-			wlr_scene_rect_set_clipped_region(con->border.bottom, (struct clipped_region) {
-				.corners = corner_radii_bottom(corner_radius),
-				// shift up one px to fix https://github.com/WillPower3309/swayfx/issues/386
-				// TODO: proper fix
-				.area = {
-					.x = border_width,
-					.y = -1,
-					.width = width - 2 * border_width,
-					.height = border_bottom - border_width + corner_radius + 1
+			if (!border_left && !border_right) { // no corners, so just a rect
+				wlr_scene_node_set_position(&con->border.bottom->node,
+					0, height - border_bottom);
+				wlr_scene_rect_set_size(con->border.bottom, width, border_bottom);
+				wlr_scene_rect_set_corner_radii(con->border.bottom, corner_radii_none());
+				wlr_scene_rect_set_clipped_region(con->border.bottom,
+					clipped_region_get_default());
+			} else {
+				wlr_scene_node_set_position(&con->border.bottom->node,
+					0, height - border_bottom - corner_radius);
+				struct fx_corner_radii outer_corners = corner_radii_bottom(border_cr);
+				struct fx_corner_radii inner_corners = corner_radii_bottom(corner_radius);
+				if (!border_left) {
+					outer_corners.bottom_left = 0;
+					inner_corners.bottom_left = 0;
 				}
-			});
+				if (!border_right) {
+					outer_corners.bottom_right = 0;
+					inner_corners.bottom_right = 0;
+				}
+				wlr_scene_rect_set_size(con->border.bottom, width, border_bottom + corner_radius);
+				wlr_scene_rect_set_corner_radii(con->border.bottom, outer_corners);
+				wlr_scene_rect_set_clipped_region(con->border.bottom, (struct clipped_region) {
+					.corners = inner_corners,
+					// shift up one px to fix https://github.com/WillPower3309/swayfx/issues/386
+					// TODO: proper fix
+					.area = {
+						.x = border_left,
+						.y = -1,
+						.width = width - border_left - border_right,
+						.height = border_bottom - border_width + corner_radius + 1
+					}
+				});
+			}
 		} else {
 			wlr_scene_rect_set_size(con->border.bottom, 0, 0);
 		}
-
-		wlr_scene_node_set_position(&con->border.top->node, 0, 0);
-		wlr_scene_node_set_position(&con->border.bottom->node,
-			0, height - border_bottom - corner_radius);
-		wlr_scene_node_set_position(&con->border.left->node,
-			0, border_top + vert_border_offset);
-		wlr_scene_node_set_position(&con->border.right->node,
-			width - border_right, border_top + vert_border_offset);
 
 		int content_width = width - border_left - border_right;
 		int content_height = height - border_top - border_bottom;

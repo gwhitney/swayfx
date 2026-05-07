@@ -188,8 +188,8 @@ static void apply_overlaid_layout(list_t *children, struct wlr_box *parent, bool
 		return;
 	}
 	struct sway_container *first = children->items[0];
-        if (n == 1 && config->hide_lone_tab && first
-		 && first->view && first->pending.border != B_NORMAL
+	if (n == 1 && config->hide_lone_tab && first
+		&& first->view && first->pending.border != B_NORMAL
 	) {
 		first->pending.x = parent->x;
 		first->pending.y = parent->y;
@@ -206,8 +206,8 @@ static void apply_overlaid_layout(list_t *children, struct wlr_box *parent, bool
 	int tab_height = container_titlebar_height();
 	int x_offset = tab_height * MIN(n_edge[WLR_EDGE_LEFT], MAX_STACK);
 	int y_offset = tab_height * MIN(n_edge[WLR_EDGE_TOP], MAX_STACK);
-        int childx = parent->x + x_offset;
-        int childy = parent->y + y_offset;
+	int childx = parent->x + x_offset;
+	int childy = parent->y + y_offset;
 	int childw = parent->width - x_offset
 		- tab_height * MIN(n_edge[WLR_EDGE_RIGHT], MAX_STACK);
 	int childh = parent->height - y_offset
