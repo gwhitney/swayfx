@@ -338,46 +338,67 @@ void view_autoconfigure(struct sway_view *view) {
 		}
 	}
 
-	double y_offset = 0;
-	double x_offset = 0;
 	int n_edge[EDGE_LIMIT] = {0};
 	enum sway_container_layout layout = container_parent_layout(con);
 	bool stacked = layout == L_STACKED;
 	int title_height = container_titlebar_height();
-	const int MAX_STACK = stacked ? 1024 : 1;
 	bool self_titlebar = true;
-	if (!container_is_floating(con)) {
-		// In a tabbed or stacked container, the container's position determines
-		// the title areas. We have to offset the surface position by the heights
-		// of titles on left and top, and disable borders on the edges where the
-		// title bars appear.
+	if (!container_is_floating(con) && (stacked || layout == L_TABBED)) {
+		// In a tabbed or stacked container, the container is usually responsible
+		// for the title areas. If so, we need to disable borders on the edges
+		// where the title bars appear.
 		list_t *siblings = container_get_siblings(con);
 		bool show_titlebar = (siblings && siblings->length > 1)
-			|| !config->hide_lone_tab;
+			|| !config->hide_lone_tab || con->pending.border == B_NORMAL;
 		if (show_titlebar) {
-			if (layout == L_TABBED || stacked) {
-				self_titlebar = false;
-				for (int i = 0; i < siblings->length; ++i) {
-					struct sway_container *sibling = siblings->items[i];
-					enum wlr_edges edge = sibling->pending.title_edge;
-					++n_edge[edge];
-				}
-				x_offset = title_height * MIN(n_edge[WLR_EDGE_LEFT], MAX_STACK);
-				y_offset = title_height * MIN(n_edge[WLR_EDGE_TOP], MAX_STACK);
-				con->pending.border_top = n_edge[WLR_EDGE_TOP] == 0;
-				con->pending.border_bottom = n_edge[WLR_EDGE_BOTTOM] == 0;
-				con->pending.border_left = n_edge[WLR_EDGE_LEFT] == 0;
-				con->pending.border_right = n_edge[WLR_EDGE_RIGHT] == 0;
+			self_titlebar = false;
+			for (int i = 0; i < siblings->length; ++i) {
+				struct sway_container *sibling = siblings->items[i];
+				enum wlr_edges edge = sibling->pending.title_edge;
+				++n_edge[edge];
 			}
+			con->pending.border_top = n_edge[WLR_EDGE_TOP] == 0;
+			con->pending.border_bottom = n_edge[WLR_EDGE_BOTTOM] == 0;
+			con->pending.border_left = n_edge[WLR_EDGE_LEFT] == 0;
+			con->pending.border_right = n_edge[WLR_EDGE_RIGHT] == 0;
 		}
 	}
+	sway_log(SWAY_DEBUG, "View %s: title %s, %d %d %d %d so %s %s %s %s",
+		con->title, self_titlebar ? "self" : "parent",
+		n_edge[WLR_EDGE_TOP], n_edge[WLR_EDGE_BOTTOM],
+		n_edge[WLR_EDGE_LEFT], n_edge[WLR_EDGE_RIGHT],
+		con->pending.border_top ? "t" : "f",
+		con->pending.border_bottom ? "t" : "f",
+		con->pending.border_left ? "t" : "f",
+		con->pending.border_right ? "t" : "f");
 
-	double x = con->pending.x + x_offset;
-	double y = con->pending.y + y_offset;
-	double width = con->pending.width - x_offset
-		- title_height * MIN(n_edge[WLR_EDGE_RIGHT], MAX_STACK);
-	double height = con->pending.height - y_offset
-		- title_height * MIN(n_edge[WLR_EDGE_BOTTOM], MAX_STACK);
+	double x = con->pending.x;
+	double y = con->pending.y;
+	double width = con->pending.width;
+	double height = con->pending.height;
+	if (con->pending.border == B_NORMAL && self_titlebar) {
+		switch (con->pending.title_edge) {
+		case WLR_EDGE_TOP:
+			y += title_height;
+			height -= title_height;
+			con->pending.border_top = false;
+			break;
+		case WLR_EDGE_BOTTOM:
+			height -= title_height;
+			con->pending.border_bottom = false;
+			break;
+		case WLR_EDGE_LEFT:
+			x += title_height;
+			width -= title_height;
+			con->pending.border_left = false;
+			break;
+		case WLR_EDGE_RIGHT:
+			width -= title_height;
+			con->pending.border_right = false;
+			break;
+		default:
+		}
+	}
 	if (con->pending.border == B_PIXEL || con->pending.border == B_NORMAL) {
 		x += con->pending.border_thickness * con->pending.border_left;
 		y += con->pending.border_thickness * con->pending.border_top;
@@ -385,23 +406,6 @@ void view_autoconfigure(struct sway_view *view) {
 			+ con->pending.border_thickness * con->pending.border_right;
 		height -= con->pending.border_thickness * con->pending.border_top
 			+ con->pending.border_thickness * con->pending.border_bottom;
-	}
-	if (con->pending.border == B_NORMAL && self_titlebar) {
-		switch (con->pending.title_edge) {
-		case WLR_EDGE_TOP:
-			y += title_height;
-			/* FALL THROUGH */
-		case WLR_EDGE_BOTTOM:
-			height -= title_height;
-			break;
-		case WLR_EDGE_LEFT:
-			x += title_height;
-			/* FALL THROUGH */
-		case WLR_EDGE_RIGHT:
-			width -= title_height;
-			break;
-		default:
-		}
 	}
 	con->pending.content_x = x;
 	con->pending.content_y = y;

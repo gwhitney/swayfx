@@ -91,8 +91,13 @@ static void render_backing_buffer(struct text_buffer *buffer) {
 		cairo_font_options_set_subpixel_order(fo, to_cairo_subpixel_order(subpixel));
 	}
 
-	cairo_surface_t *surface = cairo_image_surface_create(
-			CAIRO_FORMAT_ARGB32, width, height);
+        bool vertical = buffer->props.vertical;
+	cairo_surface_t *surface = NULL;
+	if (vertical) {
+		surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, height, width);
+	} else {
+		surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+	}
 	cairo_status_t status = cairo_surface_status(surface);
 	if (status != CAIRO_STATUS_SUCCESS) {
 		sway_log(SWAY_ERROR, "cairo_image_surface_create failed: %s",
@@ -118,18 +123,24 @@ static void render_backing_buffer(struct text_buffer *buffer) {
 	pango = pango_cairo_create_context(cairo);
 
 	cairo_set_source_rgba(cairo, background[0], background[1], background[2], background[3]);
-	cairo_rectangle(cairo, 0, 0, width, height);
+	cairo_rotate(cairo, vertical ? 1.5707963268 : 0);
+	cairo_rectangle(cairo, 0, vertical ? -height : 0, width, height);
 	cairo_fill(cairo);
 
 	cairo_set_source_rgba(cairo, color[0], color[1], color[2], color[3]);
-	cairo_move_to(cairo, 0, (config->font_baseline - buffer->props.baseline) * scale);
+	cairo_move_to(cairo, 0,
+		(config->font_baseline - buffer->props.baseline) * scale - (vertical ? height : 0));
 
 	render_text(cairo, config->font_description, scale, buffer->props.pango_markup,
 		"%s", buffer->text);
 
 	cairo_surface_flush(surface);
 
-	wlr_buffer_init(&cairo_buffer->base, &cairo_buffer_impl, width, height);
+	if (vertical) {
+		wlr_buffer_init(&cairo_buffer->base, &cairo_buffer_impl, height, width);
+	} else {
+		wlr_buffer_init(&cairo_buffer->base, &cairo_buffer_impl, width, height);
+	}
 	cairo_buffer->surface = surface;
 	cairo_buffer->cairo = cairo;
 
@@ -195,6 +206,18 @@ static void handle_destroy(struct wl_listener *listener, void *data) {
 	free(buffer);
 }
 
+static void set_dest_size(struct text_buffer *buffer) {
+	struct sway_text_node *props = &buffer->props;
+	int width = get_text_width(props);
+	int height = props->height;
+	if (props->vertical) {
+		int temp = width;
+		width = height;
+		height = temp;
+	}
+	wlr_scene_buffer_set_dest_size(buffer->buffer_node, width, height);
+}
+
 static void text_calc_size(struct text_buffer *buffer) {
 	struct sway_text_node *props = &buffer->props;
 
@@ -209,8 +232,7 @@ static void text_calc_size(struct text_buffer *buffer) {
 		&props->baseline, 1, props->pango_markup, "%s", buffer->text);
 	cairo_destroy(c);
 
-	wlr_scene_buffer_set_dest_size(buffer->buffer_node,
-		get_text_width(props), props->height);
+	set_dest_size(buffer);
 }
 
 struct sway_text_node *sway_text_node_create(struct wlr_scene_tree *parent,
@@ -238,6 +260,7 @@ struct sway_text_node *sway_text_node_create(struct wlr_scene_tree *parent,
 
 	buffer->props.height = config->font_height;
 	buffer->props.pango_markup = pango_markup;
+	buffer->props.vertical = false;
 	memcpy(&buffer->props.color, color, sizeof(*color) * 4);
 
 	buffer->destroy.notify = handle_destroy;
@@ -285,8 +308,7 @@ void sway_text_node_set_max_width(struct sway_text_node *node, int max_width) {
 		return;
 	}
 	buffer->props.max_width = max_width;
-	wlr_scene_buffer_set_dest_size(buffer->buffer_node,
-		get_text_width(&buffer->props), buffer->props.height);
+	set_dest_size(buffer);
 	render_backing_buffer(buffer);
 }
 
@@ -296,5 +318,16 @@ void sway_text_node_set_background(struct sway_text_node *node, float background
 		return;
 	}
 	memcpy(&node->background, background, sizeof(*background) * 4);
+	render_backing_buffer(buffer);
+}
+
+void sway_text_node_set_vertical(struct sway_text_node *node, bool vertical) {
+	if (node->vertical == vertical) {
+		return;
+	}
+	struct text_buffer *buffer = wl_container_of(node, buffer, props);
+	sway_log(SWAY_DEBUG, "Rerendering %s as %s", buffer->text, vertical ? "vert" : "horz");
+	buffer->props.vertical = vertical;
+        set_dest_size(buffer);
 	render_backing_buffer(buffer);
 }

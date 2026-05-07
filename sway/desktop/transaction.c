@@ -260,7 +260,7 @@ static void arrange_title_bar(struct sway_container *con,
 		int x, int y, int width, int height) {
 	container_update(con);
 
-	bool has_title_bar = height > 0;
+	bool has_title_bar = width > 0 && height > 0;
 	wlr_scene_node_set_enabled(&con->title_bar.tree->node, has_title_bar);
 	if (!has_title_bar) {
 		return;
@@ -268,7 +268,8 @@ static void arrange_title_bar(struct sway_container *con,
 
 	wlr_scene_node_set_position(&con->title_bar.tree->node, x, y);
 
-	con->title_width = width;
+	enum wlr_edges edge = con->current.title_edge;
+	con->title_width = (edge == WLR_EDGE_LEFT || edge == WLR_EDGE_RIGHT) ? height : width;
 	container_arrange_title_bar(con);
 }
 
@@ -309,6 +310,7 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 		if (config->hide_lone_tab && first && first->view &&
 				first->current.border != B_NORMAL) {
 			title_bar_height = 0;
+			title_on_edge = 0;
 		}
 		int child_x = child_count_edge[WLR_EDGE_LEFT] ? title_bar_height : 0;
 		int child_y = child_count_edge[WLR_EDGE_TOP] ? title_bar_height : 0;
@@ -382,6 +384,7 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 		if (config->hide_lone_tab && first && first->view &&
 				first->current.border != B_NORMAL) {
 			title_bar_height = 0;
+			title_on_edge = 0;
 		}
 
 		int child_x = title_bar_height * child_count_edge[WLR_EDGE_LEFT];

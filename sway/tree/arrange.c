@@ -182,32 +182,42 @@ static void apply_vert_layout(list_t *children, struct wlr_box *parent) {
 	}
 }
 
-static void apply_tabbed_layout(list_t *children, struct wlr_box *parent) {
-	if (!children->length) {
+static void apply_overlaid_layout(list_t *children, struct wlr_box *parent, bool tab) {
+	int n = children->length;
+	if (n == 0) {
 		return;
 	}
-	for (int i = 0; i < children->length; ++i) {
-		struct sway_container *child = children->items[i];
-		int parent_offset = child->view ? 0 : container_titlebar_height();
-		child->pending.x = parent->x;
-		child->pending.y = parent->y + parent_offset;
-		child->pending.width = parent->width;
-		child->pending.height = parent->height - parent_offset;
-	}
-}
-
-static void apply_stacked_layout(list_t *children, struct wlr_box *parent) {
-	if (!children->length) {
+	struct sway_container *first = children->items[0];
+        if (n == 1 && config->hide_lone_tab && first
+		 && first->view && first->pending.border != B_NORMAL
+	) {
+		first->pending.x = parent->x;
+		first->pending.y = parent->y;
+		first->pending.width = parent->width;
+		first->pending.height = parent->height;
 		return;
 	}
+	int n_edge[EDGE_LIMIT] = {0};
 	for (int i = 0; i < children->length; ++i) {
 		struct sway_container *child = children->items[i];
-		int parent_offset = child->view ?  0 :
-			container_titlebar_height() * children->length;
-		child->pending.x = parent->x;
-		child->pending.y = parent->y + parent_offset;
-		child->pending.width = parent->width;
-		child->pending.height = parent->height - parent_offset;
+		++n_edge[child->pending.title_edge];
+	}
+	int MAX_STACK = tab ? 1 : 1024;
+	int tab_height = container_titlebar_height();
+	int x_offset = tab_height * MIN(n_edge[WLR_EDGE_LEFT], MAX_STACK);
+	int y_offset = tab_height * MIN(n_edge[WLR_EDGE_TOP], MAX_STACK);
+        int childx = parent->x + x_offset;
+        int childy = parent->y + y_offset;
+	int childw = parent->width - x_offset
+		- tab_height * MIN(n_edge[WLR_EDGE_RIGHT], MAX_STACK);
+	int childh = parent->height - y_offset
+		- tab_height * MIN(n_edge[WLR_EDGE_BOTTOM], MAX_STACK);
+	for (int i = 0; i < children->length; ++i) {
+		struct sway_container *child = children->items[i];
+		child->pending.x = childx;
+		child->pending.y = childy;
+		child->pending.width = childw;
+		child->pending.height = childh;
 	}
 }
 
@@ -221,6 +231,7 @@ static void arrange_floating(list_t *floating) {
 static void arrange_children(list_t *children,
 		enum sway_container_layout layout, struct wlr_box *parent) {
 	// Calculate x, y, width and height of children
+	bool tabbed = false;
 	switch (layout) {
 	case L_HORIZ:
 		apply_horiz_layout(children, parent);
@@ -229,10 +240,10 @@ static void arrange_children(list_t *children,
 		apply_vert_layout(children, parent);
 		break;
 	case L_TABBED:
-		apply_tabbed_layout(children, parent);
-		break;
+		tabbed = true;
+		/* FALLTHROUGH */
 	case L_STACKED:
-		apply_stacked_layout(children, parent);
+		apply_overlaid_layout(children, parent, tabbed);
 		break;
 	case L_NONE:
 		apply_horiz_layout(children, parent);
