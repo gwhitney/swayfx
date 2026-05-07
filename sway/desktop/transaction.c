@@ -448,7 +448,7 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 			wlr_scene_node_set_position(&child->scene_tree->node, 0, off);
 			wlr_scene_node_reparent(&child->scene_tree->node, content);
 			if (width > 0 && cheight > 0) {
-				arrange_container(child, width, cheight, true, gaps);
+				arrange_container(child, width, cheight, 0, gaps);
 				off += cheight + gaps;
 			} else {
 				disable_container(child);
@@ -467,7 +467,7 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 			wlr_scene_node_set_position(&child->scene_tree->node, off, 0);
 			wlr_scene_node_reparent(&child->scene_tree->node, content);
 			if (cwidth > 0 && height > 0) {
-				arrange_container(child, cwidth, height, true, gaps);
+				arrange_container(child, cwidth, height, 0, gaps);
 				off += cwidth + gaps;
 			} else {
 				disable_container(child);
@@ -599,12 +599,12 @@ static void arrange_container(struct sway_container *con,
 					break;
 				case WLR_EDGE_LEFT:
 					wlr_scene_node_set_enabled(&con->border.left->node, false);
-					arrange_title_bar(con, 0, 0, title_bar_height, width);
+					arrange_title_bar(con, 0, 0, title_bar_height, height);
 					break;
 				case WLR_EDGE_RIGHT:
 					wlr_scene_node_set_enabled(&con->border.right->node, false);
 					arrange_title_bar(con, width - title_bar_height, 0,
-						width, title_bar_height);
+						title_bar_height, height);
 					break;
 				default:
 				}
@@ -795,7 +795,7 @@ static void arrange_fullscreen(struct wlr_scene_tree *tree,
 		wlr_scene_node_set_enabled(&fs->scene_tree->node, false);
 	} else {
 		fs_node = &fs->scene_tree->node;
-		arrange_container(fs, width, height, true, container_get_gaps(fs));
+		arrange_container(fs, width, height, 0, container_get_gaps(fs));
 	}
 
 	wlr_scene_node_reparent(fs_node, tree);
@@ -836,7 +836,7 @@ static void arrange_workspace_floating(struct sway_workspace *ws) {
 		wlr_scene_node_set_enabled(&floater->border.tree->node, true);
 
 		arrange_container(floater, floater->current.width, floater->current.height,
-			true, ws->gaps_inner);
+			0, ws->gaps_inner);
 	}
 }
 
