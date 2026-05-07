@@ -85,18 +85,29 @@ static enum wlr_edges find_edge(struct sway_container *cont,
 	if (cont->pending.fullscreen_mode) {
 		return WLR_EDGE_NONE;
 	}
+	// If we are actually outside the boundary of the container, then we must (?)
+	// be on a titlebar, not an edge:
+	double cx = cursor->cursor->x - cont->pending.x;
+	double cy = cursor->cursor->y - cont->pending.y;
+	if (cx < 0 || cy < 0 || cx > cont->pending.width || cy > cont->pending.height) {
+		return WLR_EDGE_NONE;
+	}
 
+	// We are within the container, so check the edges.
+	// TODO: should we check if each border is actually displayed,
+	// or keep the behavior that a click where the border would be
+	// if it were being displayed counts as being in the border?
 	enum wlr_edges edge = 0;
-	if (cursor->cursor->x < cont->pending.x + cont->pending.border_thickness) {
+	if (cx < cont->pending.border_thickness) {
 		edge |= WLR_EDGE_LEFT;
 	}
-	if (cursor->cursor->y < cont->pending.y + cont->pending.border_thickness) {
+	if (cy < cont->pending.border_thickness) {
 		edge |= WLR_EDGE_TOP;
 	}
-	if (cursor->cursor->x >= cont->pending.x + cont->pending.width - cont->pending.border_thickness) {
+	if (cx >= cont->pending.width - cont->pending.border_thickness) {
 		edge |= WLR_EDGE_RIGHT;
 	}
-	if (cursor->cursor->y >= cont->pending.y + cont->pending.height - cont->pending.border_thickness) {
+	if (cy >= cont->pending.height - cont->pending.border_thickness) {
 		edge |= WLR_EDGE_BOTTOM;
 	}
 
