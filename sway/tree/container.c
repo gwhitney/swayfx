@@ -1260,18 +1260,34 @@ void container_set_geometry_from_content(struct sway_container *con) {
 		return;
 	}
 	size_t border_width = 0;
-	size_t top = 0;
+	size_t title_extra = 0;
 
 	if (con->pending.border != B_CSD && !con->pending.fullscreen_mode) {
 		border_width = con->pending.border_thickness * (con->pending.border != B_NONE);
-		top = con->pending.border == B_NORMAL ?
-			container_titlebar_height() : border_width;
+		if (con->pending.border == B_NORMAL) {
+			title_extra = container_titlebar_height() - border_width;
+		}
 	}
 
 	con->pending.x = con->pending.content_x - border_width;
-	con->pending.y = con->pending.content_y - top;
+	con->pending.y = con->pending.content_y - border_width;
 	con->pending.width = con->pending.content_width + border_width * 2;
-	con->pending.height = top + con->pending.content_height + border_width;
+	con->pending.height = con->pending.content_height + border_width * 2;
+	switch (con->pending.title_edge) {
+	case WLR_EDGE_TOP:
+		con->pending.y -= title_extra;
+		/* FALL THROUGH */
+	case WLR_EDGE_BOTTOM:
+		con->pending.height += title_extra;
+		break;
+	case WLR_EDGE_LEFT:
+		con->pending.x -= title_extra;
+		/* FALL THROUGH */
+	case WLR_EDGE_RIGHT:
+		con->pending.width += title_extra;
+		break;
+	default:
+	}
 	node_set_dirty(&con->node);
 }
 
