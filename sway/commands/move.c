@@ -24,6 +24,7 @@
 static const char expected_syntax[] =
 	"Expected 'move <left|right|up|down> <[px] px>' or "
 	"'move [--no-auto-back-and-forth] <container|window> [to] workspace <name>' or "
+	"'move <container|window> [to] new workspace' or "
 	"'move <container|window|workspace> [to] output <name|direction>' or "
 	"'move <container|window> [to] mark <mark>'";
 
@@ -447,11 +448,27 @@ static struct cmd_results *cmd_move_container(bool no_auto_back_and_forth,
 	struct sway_node *destination = NULL;
 
 	// determine destination
+	bool make_new_ws = false;
+	if (strcasecmp(argv[0], "new") == 0
+		&& strcasecmp(argv[1], "workspace") == 0
+	) {
+		make_new_ws = true;
+		++argv;
+		--argc;
+	}
 	if (strcasecmp(argv[0], "workspace") == 0) {
 		// move container to workspace x
 		struct sway_workspace *ws = NULL;
 		char *ws_name = NULL;
-		if (strcasecmp(argv[1], "next") == 0 ||
+		if (argc < 2) {
+			// make_new_ws must be true, so generate the workspace
+			// name to use
+			ws_name = workspace_next_name(
+				old_output->wlr_output->name);
+		} else if (make_new_ws) {
+			return cmd_results_new(CMD_INVALID, "%s",
+				expected_syntax);
+		} else if (strcasecmp(argv[1], "next") == 0 ||
 				strcasecmp(argv[1], "prev") == 0 ||
 				strcasecmp(argv[1], "next_on_output") == 0 ||
 				strcasecmp(argv[1], "prev_on_output") == 0 ||
@@ -1024,7 +1041,7 @@ static struct cmd_results *cmd_move_to_scratchpad(void) {
 
 static const char expected_full_syntax[] = "Expected "
 	"'move left|right|up|down [<amount> [px]]'"
-	" or 'move [--no-auto-back-and-forth] [window|container] [to] workspace"
+	" or 'move [--no-auto-back-and-forth] [window|container] [to] [new] workspace"
 	"  <name>|next|prev|next_on_output|prev_on_output|current|(number <num>)'"
 	" or 'move [window|container] [to] output <name/id>|left|right|up|down'"
 	" or 'move [window|container] [to] mark <mark>'"
@@ -1086,7 +1103,10 @@ struct cmd_results *cmd_move(int argc, char **argv) {
 
 	if (strcasecmp(argv[0], "workspace") == 0 ||
 			strcasecmp(argv[0], "output") == 0 ||
-			strcasecmp(argv[0], "mark") == 0) {
+			strcasecmp(argv[0], "mark") == 0 ||
+			(strcasecmp(argv[0], "new") == 0 && argc > 1
+				&& strcasecmp(argv[1], "workspace") == 0)
+	) {
 		return cmd_move_container(no_auto_back_and_forth, argc, argv);
 	} else if (strcasecmp(argv[0], "scratchpad") == 0) {
 		return cmd_move_to_scratchpad();

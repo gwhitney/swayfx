@@ -5,6 +5,7 @@
 #include "sway/commands.h"
 #include "sway/config.h"
 #include "sway/input/seat.h"
+#include "sway/output.h"
 #include "sway/tree/workspace.h"
 #include "list.h"
 #include "log.h"
@@ -221,7 +222,16 @@ struct cmd_results *cmd_workspace(int argc, char **argv) {
 				ws = workspace_create(NULL, seat->prev_workspace_name);
 			}
 		} else {
-			char *name = join_args(argv, argc);
+			char *name = NULL;
+                        if (strcasecmp(argv[0], "new") == 0 && argc == 2
+				&& strcasecmp(argv[1], "workspace") == 0
+			) {
+				name = workspace_next_name(
+					config->handler_context.workspace
+						->output->wlr_output->name);
+			} else {
+				name = join_args(argv, argc);
+			}
 			if (!(ws = workspace_by_name(name))) {
 				ws = workspace_create(NULL, name);
 			}

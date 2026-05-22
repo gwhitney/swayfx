@@ -344,6 +344,7 @@ static struct cmd_results *focus_parent(void) {
 	}
 	struct sway_node *parent = node_get_parent(&con->node);
 	if (parent) {
+		sway_log(SWAY_DEBUG, "Focusing parent node #%lu", parent->id);
 		seat_set_focus(seat, parent);
 		seat_consider_warp_to_focus(seat);
 	}

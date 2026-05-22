@@ -11,6 +11,7 @@
 #include "sway/input/input-manager.h"
 #include "sway/input/seat.h"
 #include "sway/tree/view.h"
+#include "sway/tree/workspace.h"
 #include "stringop.h"
 #include "log.h"
 
@@ -212,6 +213,7 @@ static void set_config_node(struct sway_node *node, bool node_overridden) {
 	config->handler_context.node_overridden = node_overridden;
 
 	if (node == NULL) {
+		sway_log(SWAY_DEBUG, "   Command node is null.");
 		return;
 	}
 
@@ -227,6 +229,17 @@ static void set_config_node(struct sway_node *node, bool node_overridden) {
 	case N_OUTPUT:
 		break;
 	}
+	const char *title = "(none)";
+	if (config->handler_context.container) {
+		title = config->handler_context.container->formatted_title;
+		if (title == NULL) {
+			title = "(untitled)";
+		}
+	}
+	sway_log(SWAY_DEBUG, "   Command operating on node #%lu, container %s, workspace %s",
+		config->handler_context.node->id, title,
+		config->handler_context.workspace
+			? config->handler_context.workspace->name : "(none)");
 }
 
 list_t *execute_command(char *_exec, struct sway_seat *seat,

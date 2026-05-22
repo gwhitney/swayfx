@@ -280,6 +280,9 @@ set|plus|minus|toggle <amount>
 *move* [container|window] [to] workspace back_and_forth
 	Moves the focused container to previously focused workspace.
 
+*move* [container|window] [to] new workspace
+	Moves the focused container to a new workspace on its current output.
+
 *move* [container|window] [to] output <name-or-id>|current
 	Moves the focused container to the specified output.
 
@@ -353,11 +356,31 @@ set|plus|minus|toggle <amount>
 	*sway-input*(5) for more ways to affect inhibitors.
 
 *split* vertical|v|horizontal|h|none|n|toggle|t
-	Splits the current container, vertically or horizontally. When _none_ is
-	specified, the effect of a previous split is undone if the current
-	container is the only child of a split parent. When _toggle_ is
-	specified, the current container is split opposite to the parent
-	container's layout.
+	When the argument is _none_ or _n_, then this command has no effect on
+	the item (window/container) it is invoked on, but if the item has a
+	parent with no other children, then the parent is deleted (so that
+	the item moves one level up the display tree). This "flattening" of
+	singleton parents iterates until the original item either has a sibling
+	or has no parent (i.e., has floated all the way up to the top level in
+	the workspace).
+
+	Otherwise, the argument specifies a layout orientation, either directly,
+	or via _toggle_ / _t_, which means that the orientation is horizontal,
+	if the item has a vertically-split parent, or vertical otherwise. Then
+	typically the item is replaced by a container split in the specified
+	orientation; the only child of this new container is the original item,
+	which has thereby moved one level deeper in the display tree. However,
+	if the item is not floating and has a parent with no other child, the only
+	effect is to set its parent layout to the selected orientation.
+
+	Taken together, these behaviors mean that:
+
+	- a _split none_ command issued immediately after a different split
+	command	undoes the first split command (and possibly also deletes
+	further one-child ancestors above); and
+
+	- any other split command issued immmediately after another split has
+	no effect except possibly to change the orientation of the first split.
 
 *splith*
 	Equivalent to *split horizontal*
@@ -1070,9 +1093,11 @@ The default colors are:
 	workspace with the number does not exist, a new workspace will be created
 	with the name _name_.
 
-*workspace* prev|next
-	Switches to the next workspace on the current output or on the next output
-	if currently on the last workspace.
+*workspace* prev|next|new workspace
+	Switches to the next/previous/a new workspace on the current output,
+	or for _prev_ / _next_, on the next/previous output if currently on the
+	last/first workspace of the current output.
+
 
 *workspace* prev_on_output|next_on_output
 	Switches to the next workspace on the current output.
