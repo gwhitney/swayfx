@@ -59,8 +59,9 @@ enum binding_flags {
  */
 struct sway_binding {
 	enum binding_input_type type;
-	int order;
-	char *input;
+	int order; // Serial number of the binding
+	char *input; // Which device the binding is for, or "*" for all.
+	struct criteria *criteria; // focused window/container must match this
 	uint32_t flags;
 	list_t *keys; // sorted in ascending order
 	list_t *syms; // sorted in ascending order; NULL if BINDING_CODE is not set
@@ -90,6 +91,7 @@ struct sway_switch_binding {
  */
 struct sway_gesture_binding {
 	char *input;
+	struct criteria* criteria;
 	uint32_t flags;
 	struct gesture gesture;
 	char *command;
@@ -752,6 +754,9 @@ void free_sway_binding(struct sway_binding *sb);
 void free_switch_binding(struct sway_switch_binding *binding);
 
 void free_gesture_binding(struct sway_gesture_binding *binding);
+
+struct sway_container *seat_binding_default_container(struct sway_seat *seat,
+	struct sway_binding *binding);
 
 void seat_execute_command(struct sway_seat *seat, struct sway_binding *binding);
 

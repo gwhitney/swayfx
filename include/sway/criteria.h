@@ -87,4 +87,10 @@ list_t *criteria_for_view(struct sway_view *view, enum criteria_type types);
  */
 list_t *criteria_get_containers(struct criteria *criteria);
 
+/**
+ * Check if a specific container on a seat matches a given criteria
+ */
+bool criteria_matches_container_seat(struct criteria *criteria,
+	struct sway_container *container, struct sway_seat *seat);
+
 #endif

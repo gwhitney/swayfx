@@ -466,7 +466,7 @@ animation_duration_ms <value>
 		for_window <criteria> move container to output <output>
 
 *bindsym* [--whole-window] [--border] [--exclude-titlebar] [--release] [--locked] \
-[--to-code] [--input-device=<device>] [--no-warn] [--no-repeat] [--inhibited] \
+[--to-code] [--input-device=<device>] [<criteria>] [--no-warn] [--no-repeat] [--inhibited] \
 [Group<1-4>+]<key combo> <command>
 	Binds _key combo_ to execute the sway command _command_ when pressed. You
 	may use XKB key names here (*wev*(1) is a good tool for discovering these).
@@ -474,8 +474,10 @@ animation_duration_ms <value>
 	released. If _input-device_ is given, the binding will only be executed for
 	that input device and will be executed instead of any binding that is
 	generic to all devices. If a group number is given, then the binding will
-	only be available for that group. By default, if you overwrite a binding,
-	swaynag will give you a warning. To silence this, use the _--no-warn_ flag.
+	only be available for that group. If a criteria is specified, then the
+	binding will only apply when the window that receives the key matches
+	the criteria. By default, if you overwrite a binding, swaynag will give
+	you a warning. To silence this, use the _--no-warn_ flag.
 
 	For specifying modifier keys, you can use the XKB modifier names _Shift_,
 	_Lock_ (for Caps Lock), _Control_, _Mod1_ (for Alt), _Mod2_ (for Num Lock),
@@ -498,8 +500,20 @@ animation_duration_ms <value>
 	define bindings which will be exempt from pass-through to such
 	software. The same preference logic as for _--locked_ applies.
 
+	In a somewhat similar fashion, if both a binding with and without a
+	criteria match, the one which had a criteria specified will prevail,
+	when that criteria is satisfied by the receiving window. Note that
+	if multiple different criteria for different bindings match (and all
+	other aspects of the match are equivalent), then the binding which was
+	defined earliest will be invoked.
+
+	To summarize, if there are multiple matches for the keys and modifiers
+	pressed, then the binding invoked is chosen by the following aspects
+	in priority order: input device, current group, criteria, locked state,
+	inhibited state, and definition	order.
+
 	Unless the flag _--no-repeat_ is set, the command will be run
-	repeatedly when the key is held, according to the repeat
+	repeatedly when the key combination is held, according to the repeat
 	settings specified in the input configuration.
 
 	Bindings to keysyms are layout-dependent. This can be changed with the
@@ -513,9 +527,6 @@ animation_duration_ms <value>
 	values in X11 (1=left, 2=middle, 3=right, 4=scroll up, 5=scroll down,
 	6=scroll left, 7=scroll right, 8=back, 9=forward). For the latter option,
 	you can find the event names using _libinput debug-events_.
-
-	The priority for matching bindings is as follows: input device, group,
-	and locked state.
 
 	_--whole-window_, _--border_, and _--exclude-titlebar_ are mouse-only options
 	which affect the region in which the mouse bindings can be triggered.  By
@@ -571,7 +582,7 @@ animation_duration_ms <value>
 		bindswitch lid:toggle exec echo "Lid moved"
 ```
 
-*bindgesture* [--exact] [--input-device=<device>] [--no-warn] \
+*bindgesture* [--exact] [--input-device=<device>] [<criteria>] [--no-warn] \
 <gesture>[:<fingers>][:directions] <command>
 	Binds _gesture_ to execute the sway command _command_ when detected.
 	Currently supports the _hold_, _pinch_ or _swipe_ gesture. Optionally
@@ -601,6 +612,11 @@ animation_duration_ms <value>
 	that input device and will be executed instead of any binding that is
 	generic to all devices. By default, if you overwrite a binding,
 	swaynag will give you a warning. To silence this, use the _--no-warn_ flag.
+	If a criteria is given, the binding will only be executed when the
+	focused window matches the criteria, and will be executed instead of
+	any binding that is as good a match for the input device and has no
+	criteria. If multiple gesture bindings with criteria match, the earliest
+	to have been registered with sway will take precedence.
 
 	The _--exact_ flag can be used to ensure a binding only matches when exactly
 	all specified directions are matched and nothing more. If there is matching
@@ -893,7 +909,8 @@ The default colors are:
 	Allows to remove the border between titlebar and window content.
 
 *for_window* <criteria> <command>
-	Whenever a window that matches _criteria_ appears, run list of commands.
+	Whenever a window that matches _criteria_ appears, run list of commands
+	to operate on that window (rather than whatever may be focused).
 	See *CRITERIA* for more details.
 
 *layer_effects* <layer-namespace> <effects>

@@ -7,6 +7,7 @@
 #include <wlr/types/wlr_cursor.h>
 #include "sway/commands.h"
 #include "sway/config.h"
+#include "sway/criteria.h"
 #include "sway/desktop/transaction.h"
 #include "sway/input/cursor.h"
 #include "sway/input/keyboard.h"
@@ -26,6 +27,9 @@ void free_sway_binding(struct sway_binding *binding) {
 	list_free_items_and_destroy(binding->keys);
 	list_free_items_and_destroy(binding->syms);
 	free(binding->input);
+	if (binding->criteria) {
+		criteria_destroy(binding->criteria);
+	}
 	free(binding->command);
 	free(binding);
 }
@@ -68,6 +72,11 @@ static bool binding_key_compare(struct sway_binding *binding_a,
 	}
 
 	if (binding_a->type != binding_b->type) {
+		return false;
+	}
+
+	// two criteria with distinct pointers are assumed distinct
+	if (binding_a->criteria != binding_b->criteria) {
 		return false;
 	}
 
@@ -341,6 +350,7 @@ static struct cmd_results *cmd_bindsym_or_bindcode(int argc, char **argv,
 		return cmd_results_new(CMD_FAILURE, "Unable to allocate binding");
 	}
 	binding->input = strdup("*");
+	binding->criteria = NULL;
 	binding->keys = create_list();
 	binding->group = XKB_LAYOUT_INVALID;
 	binding->modifiers = 0;
@@ -371,6 +381,15 @@ static struct cmd_results *cmd_bindsym_or_bindcode(int argc, char **argv,
 			free(binding->input);
 			binding->input = strdup(argv[0] + strlen("--input-device="));
 			strip_quotes(binding->input);
+		} else if (argv[0][0] == '[') {
+			char *e = NULL;
+			binding->criteria = criteria_parse(argv[0], &e);
+			if (!(binding->criteria)) {
+				struct cmd_results *error
+					= cmd_results_new(CMD_INVALID, "%s", e);
+				free(e);
+				return error;
+			}
 		} else if (strcmp("--no-warn", argv[0]) == 0) {
 			warn = false;
 		} else if (strcmp("--no-repeat", argv[0]) == 0) {
@@ -597,6 +616,30 @@ struct cmd_results *cmd_unbindswitch(int argc, char **argv) {
 }
 
 /**
+ * Choose the default container a binding would apply to
+ */
+struct sway_container *seat_binding_default_container(struct sway_seat *seat,
+	struct sway_binding *binding
+) {
+	if (binding->type == BINDING_MOUSESYM
+			|| binding->type == BINDING_MOUSECODE) {
+		struct wlr_surface *surface = NULL;
+		double sx, sy;
+		struct sway_node *node = node_at_coords(seat,
+				seat->cursor->cursor->x, seat->cursor->cursor->y,
+				&surface, &sx, &sy);
+		if (node && node->type == N_CONTAINER) {
+			return node->sway_container;
+		}
+	}
+	struct sway_node *node = seat_get_focus_inactive(seat, &root->node);
+	if (node && node->type == N_CONTAINER) {
+		return node->sway_container;
+	}
+	return NULL;
+}
+
+/**
  * Execute the command associated to a binding
  */
 void seat_execute_command(struct sway_seat *seat, struct sway_binding *binding) {
@@ -616,16 +659,10 @@ void seat_execute_command(struct sway_seat *seat, struct sway_binding *binding) 
 
 	sway_log(SWAY_DEBUG, "running command for binding: %s", binding->command);
 	struct sway_container *con = NULL;
+	// Container selected by mouse is considered an "override"
 	if (binding->type == BINDING_MOUSESYM
 			|| binding->type == BINDING_MOUSECODE) {
-		struct wlr_surface *surface = NULL;
-		double sx, sy;
-		struct sway_node *node = node_at_coords(seat,
-				seat->cursor->cursor->x, seat->cursor->cursor->y,
-				&surface, &sx, &sy);
-		if (node && node->type == N_CONTAINER) {
-			con = node->sway_container;
-		}
+		con = seat_binding_default_container(seat, binding);
 	}
 
 	list_t *res_list = execute_command(binding->command, seat, con);

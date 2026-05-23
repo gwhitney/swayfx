@@ -5,6 +5,7 @@
 #include <wlr/types/wlr_tablet_v2.h>
 #include <wlr/types/wlr_xcursor_manager.h>
 #include "gesture.h"
+#include "sway/criteria.h"
 #include "sway/desktop/transaction.h"
 #include "sway/input/cursor.h"
 #include "sway/input/seat.h"
@@ -134,7 +135,8 @@ enum wlr_edges find_resize_edge(struct sway_container *cont,
 static struct sway_binding* get_active_mouse_binding(
 		struct seatop_default_event *e, list_t *bindings, uint32_t modifiers,
 		bool release, bool on_titlebar, bool on_border, bool on_content,
-		bool on_workspace, const char *identifier) {
+		bool on_workspace, const char *identifier, struct sway_seat *seat
+) {
 	uint32_t click_region =
 			((on_titlebar || on_workspace) ? BINDING_TITLEBAR : 0) |
 			((on_border || on_workspace) ? BINDING_BORDER : 0) |
@@ -143,17 +145,29 @@ static struct sway_binding* get_active_mouse_binding(
 	struct sway_binding *current = NULL;
 	for (int i = 0; i < bindings->length; ++i) {
 		struct sway_binding *binding = bindings->items[i];
+		bool binding_input = strcmp(binding->input, identifier) == 0;
+
 		if (modifiers ^ binding->modifiers ||
 				e->pressed_button_count != (size_t)binding->keys->length ||
 				release != (binding->flags & BINDING_RELEASE) ||
 				!(click_region & binding->flags) ||
 				(on_workspace &&
 				 (click_region & binding->flags) != click_region) ||
-				(strcmp(binding->input, identifier) != 0 &&
+				(!binding_input &&
 				 strcmp(binding->input, "*") != 0)) {
 			continue;
 		}
 
+		bool criteria_matched = false;
+		if (binding->criteria) {
+			struct sway_container *con
+				= seat_binding_default_container(seat, binding);
+			criteria_matched = criteria_matches_container_seat(
+				binding->criteria, con, seat);
+			if (!criteria_matched) {
+				continue;
+			}
+		}
 		bool match = true;
 		for (size_t j = 0; j < e->pressed_button_count; j++) {
 			uint32_t key = *(uint32_t *)binding->keys->items[j];
@@ -166,10 +180,20 @@ static struct sway_binding* get_active_mouse_binding(
 			continue;
 		}
 
-		if (!current || strcmp(current->input, "*") == 0) {
+		if (current) {
+			bool current_input = strcmp(current->input, identifier) == 0;
+			bool current_criteria = !!(current->criteria);
+			if (current_input && !binding_input) {
+				continue;
+			}
+			if (current_input == binding_input && current_criteria) {
+				continue;
+			}
+
 			current = binding;
-			if (strcmp(current->input, identifier) == 0) {
-				// If a binding is found for the exact input, quit searching
+			if (binding_input && criteria_matched) {
+				// If a binding is found for the exact input,
+				// and it also matched a criteria, quit searching
 				break;
 			}
 		}
@@ -321,12 +345,12 @@ static bool trigger_pointer_button_binding(struct sway_seat *seat,
 		binding = get_active_mouse_binding(e,
 			config->current_mode->mouse_bindings, modifiers, false,
 			on_titlebar, on_border, on_contents, on_workspace,
-			device_identifier);
+			device_identifier, seat);
 	} else {
 		binding = get_active_mouse_binding(e,
 			config->current_mode->mouse_bindings, modifiers, true,
 			on_titlebar, on_border, on_contents, on_workspace,
-			device_identifier);
+			device_identifier, seat);
 		state_erase_button(e, button);
 	}
 
@@ -754,7 +778,7 @@ static void handle_pointer_axis(struct sway_seat *seat,
 	state_add_button(e, button);
 	binding = get_active_mouse_binding(e, config->current_mode->mouse_bindings,
 			modifiers, false, on_titlebar, on_border, on_contents, on_workspace,
-			dev_id);
+			dev_id, seat);
 	if (binding) {
 		seat_execute_command(seat, binding);
 		handled = true;
@@ -794,7 +818,7 @@ static void handle_pointer_axis(struct sway_seat *seat,
 	// Handle mouse bindings - x11 mouse buttons 4-7 - release event
 	binding = get_active_mouse_binding(e, config->current_mode->mouse_bindings,
 			modifiers, true, on_titlebar, on_border, on_contents, on_workspace,
-			dev_id);
+			dev_id, seat);
 	state_erase_button(e, button);
 	if (binding) {
 		seat_execute_command(seat, binding);

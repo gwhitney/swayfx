@@ -4,10 +4,14 @@
 #include "log.h"
 #include "stringop.h"
 #include "sway/commands.h"
+#include "sway/criteria.h"
 
 void free_gesture_binding(struct sway_gesture_binding *binding) {
 	if (!binding) {
 		return;
+	}
+	if (binding->criteria) {
+		criteria_destroy(binding->criteria);
 	}
 	free(binding->input);
 	free(binding->command);
@@ -20,6 +24,9 @@ void free_gesture_binding(struct sway_gesture_binding *binding) {
 static bool binding_gesture_equal(struct sway_gesture_binding *binding_a,
 								  struct sway_gesture_binding *binding_b) {
 	if (strcmp(binding_a->input, binding_b->input) != 0) {
+		return false;
+	}
+	if (binding_a->criteria != binding_b->criteria) {
 		return false;
 	}
 
@@ -112,6 +119,7 @@ static struct cmd_results *cmd_bind_or_unbind_gesture(int argc, char **argv, boo
 		return cmd_results_new(CMD_FAILURE, "Unable to allocate binding");
 	}
 	binding->input = strdup("*");
+	binding->criteria = NULL;
 
 	bool warn = true;
 
@@ -124,6 +132,15 @@ static struct cmd_results *cmd_bind_or_unbind_gesture(int argc, char **argv, boo
 		} else if (has_prefix(argv[0], "--input-device=")) {
 			free(binding->input);
 			binding->input = strdup(argv[0] + strlen("--input-device="));
+		} else if (argv[0][0] == '[') {
+			char *e = NULL;
+			binding->criteria = criteria_parse(argv[0], &e);
+			if (!(binding->criteria)) {
+				struct cmd_results *error
+					= cmd_results_new(CMD_INVALID, "%s", e);
+				free(e);
+				return error;
+			}
 		} else {
 			break;
 		}

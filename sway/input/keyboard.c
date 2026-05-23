@@ -9,6 +9,7 @@
 #include <wlr/types/wlr_keyboard_group.h>
 #include <xkbcommon/xkbcommon-names.h>
 #include "sway/commands.h"
+#include "sway/criteria.h"
 #include "sway/input/input-manager.h"
 #include "sway/input/keyboard.h"
 #include "sway/input/seat.h"
@@ -158,24 +159,36 @@ static bool update_shortcut_state(struct sway_shortcut_state *state,
 static void get_active_binding(const struct sway_shortcut_state *state,
 		list_t *bindings, struct sway_binding **current_binding,
 		uint32_t modifiers, bool release, bool locked, bool inhibited,
-		const char *input, bool exact_input, xkb_layout_index_t group) {
+		const char *input, bool exact_input, struct sway_seat *seat,
+		xkb_layout_index_t group
+) {
 	for (int i = 0; i < bindings->length; ++i) {
 		struct sway_binding *binding = bindings->items[i];
 		bool binding_locked = (binding->flags & BINDING_LOCKED) != 0;
 		bool binding_inhibited = (binding->flags & BINDING_INHIBITED) != 0;
+		bool binding_group = binding->group != XKB_LAYOUT_INVALID;
 		bool binding_release = binding->flags & BINDING_RELEASE;
 
 		if (modifiers ^ binding->modifiers ||
 				release != binding_release ||
 				locked > binding_locked ||
 				inhibited > binding_inhibited ||
-				(binding->group != XKB_LAYOUT_INVALID &&
-				 binding->group != group) ||
+				(binding_group && binding->group != group) ||
 				(strcmp(binding->input, input) != 0 &&
 				 (strcmp(binding->input, "*") != 0 || exact_input))) {
 			continue;
 		}
 
+		bool criteria_matched = false;
+		if (binding->criteria) {
+			struct sway_container *con
+				= seat_binding_default_container(seat, binding);
+			criteria_matched = criteria_matches_container_seat(
+				binding->criteria, con, seat);
+			if (!criteria_matched) {
+				continue;
+			}
+		}
 		bool match = false;
 		if (state->npressed == (size_t)binding->keys->length) {
 			match = true;
@@ -202,20 +215,23 @@ static void get_active_binding(const struct sway_shortcut_state *state,
 				continue;
 			}
 
+			bool doubtful = true;
 			bool current_locked =
 				((*current_binding)->flags & BINDING_LOCKED) != 0;
 			bool current_inhibited =
 				((*current_binding)->flags & BINDING_INHIBITED) != 0;
 			bool current_input = strcmp((*current_binding)->input, input) == 0;
-			bool current_group_set =
+			bool current_group =
 				(*current_binding)->group != XKB_LAYOUT_INVALID;
+			bool current_criteria
+				= !!((*current_binding)->criteria);
 			bool binding_input = strcmp(binding->input, input) == 0;
-			bool binding_group_set = binding->group != XKB_LAYOUT_INVALID;
 
 			if (current_input == binding_input
+					&& current_criteria == criteria_matched
 					&& current_locked == binding_locked
 					&& current_inhibited == binding_inhibited
-					&& current_group_set == binding_group_set) {
+					&& current_group == binding_group) {
 				sway_log(SWAY_DEBUG,
 						"Encountered conflicting bindings %d and %d",
 						(*current_binding)->order, binding->order);
@@ -224,34 +240,55 @@ static void get_active_binding(const struct sway_shortcut_state *state,
 
 			if (current_input && !binding_input) {
 				continue; // Prefer the correct input
+			} else if (current_input != binding_input) {
+				// no need for further checks, new binding better
+				doubtful = false;
 			}
 
-			if (current_input == binding_input &&
-				   (*current_binding)->group == group) {
-				continue; // Prefer correct group for matching inputs
+			if (doubtful) {
+				// Prefer correct group for matching inputs
+				if (current_group && !binding_group) {
+					continue;
+				} else if (current_group != binding_group) {
+					doubtful = false;
+				}
 			}
 
-			if (current_input == binding_input &&
-					current_group_set == binding_group_set &&
-					current_locked == locked) {
-				continue; // Prefer correct lock state for matching input+group
+			if (doubtful) {
+				// Prefer a binding that has passed a criterion
+				if (current_criteria && !criteria_matched) {
+					continue;
+				} else if (current_criteria != criteria_matched) {
+					doubtful = false;
+                                }
 			}
 
-			if (current_input == binding_input &&
-					current_group_set == binding_group_set &&
-					current_locked == binding_locked &&
-					current_inhibited == inhibited) {
-				// Prefer correct inhibition state for matching
-				// input+group+locked
+			if (doubtful) {
+				// Prefer a binding that matches the locked state
+				if (current_locked == locked
+					&& binding_locked != locked
+				) {
+					continue;
+				} else if (current_locked != locked
+					&& binding_locked == locked
+				) {
+					doubtful = false;
+				}
+                        }
+
+			if (doubtful && current_inhibited == inhibited) {
+				// Prefer correct inhibition state when
+				// everything else matches
 				continue;
 			}
 		}
 
 		*current_binding = binding;
-		if (strcmp((*current_binding)->input, input) == 0 &&
-				(((*current_binding)->flags & BINDING_LOCKED) == locked) &&
-				(((*current_binding)->flags & BINDING_INHIBITED) == inhibited) &&
-				(*current_binding)->group == group) {
+		if (strcmp((*current_binding)->input, input) == 0
+				&& criteria_matched
+				&& binding_locked == locked
+				&& binding_inhibited == inhibited
+				&& binding_group) {
 			return; // If a perfect match is found, quit searching
 		}
 	}
@@ -459,17 +496,17 @@ static void handle_key_event(struct sway_keyboard *keyboard,
 			config->current_mode->keycode_bindings, &binding_released,
 			keyinfo.code_modifiers, true, locked,
 			shortcuts_inhibited, device_identifier,
-			exact_identifier, keyboard->effective_layout);
+			exact_identifier, seat, keyboard->effective_layout);
 	get_active_binding(&keyboard->state_keysyms_raw,
 			config->current_mode->keysym_bindings, &binding_released,
 			keyinfo.raw_modifiers, true, locked,
 			shortcuts_inhibited, device_identifier,
-			exact_identifier, keyboard->effective_layout);
+			exact_identifier, seat, keyboard->effective_layout);
 	get_active_binding(&keyboard->state_keysyms_translated,
 			config->current_mode->keysym_bindings, &binding_released,
 			keyinfo.translated_modifiers, true, locked,
 			shortcuts_inhibited, device_identifier,
-			exact_identifier, keyboard->effective_layout);
+			exact_identifier, seat, keyboard->effective_layout);
 
 	// Execute stored release binding once no longer active
 	if (keyboard->held_binding && binding_released != keyboard->held_binding &&
@@ -491,17 +528,20 @@ static void handle_key_event(struct sway_keyboard *keyboard,
 				config->current_mode->keycode_bindings, &binding,
 				keyinfo.code_modifiers, false, locked,
 				shortcuts_inhibited, device_identifier,
-				exact_identifier, keyboard->effective_layout);
+				exact_identifier, seat,
+				keyboard->effective_layout);
 		get_active_binding(&keyboard->state_keysyms_raw,
 				config->current_mode->keysym_bindings, &binding,
 				keyinfo.raw_modifiers, false, locked,
 				shortcuts_inhibited, device_identifier,
-				exact_identifier, keyboard->effective_layout);
+				exact_identifier, seat,
+				keyboard->effective_layout);
 		get_active_binding(&keyboard->state_keysyms_translated,
 				config->current_mode->keysym_bindings, &binding,
 				keyinfo.translated_modifiers, false, locked,
 				shortcuts_inhibited, device_identifier,
-				exact_identifier, keyboard->effective_layout);
+				exact_identifier, seat,
+				keyboard->effective_layout);
 	}
 
 	// Set up (or clear) keyboard repeat for a pressed binding. Since the

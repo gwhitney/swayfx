@@ -188,9 +188,10 @@ static bool criteria_matches_container(struct criteria *criteria,
 	return true;
 }
 
-static bool criteria_matches_view(struct criteria *criteria,
-		struct sway_view *view) {
-	struct sway_seat *seat = input_manager_current_seat();
+static bool criteria_matches_view_seat(struct criteria *criteria,
+		struct sway_view *view,
+		struct sway_seat *seat
+) {
 	struct sway_container *focus = seat_get_focused_container(seat);
 	struct sway_view *focused = focus ? focus->view : NULL;
 
@@ -454,12 +455,33 @@ static bool criteria_matches_view(struct criteria *criteria,
 	return true;
 }
 
+bool criteria_matches_container_seat(struct criteria *criteria,
+	struct sway_container *container,
+	struct sway_seat *seat
+) {
+	if (!container) {
+		return false;
+	}
+	if (container->view) {
+		return criteria_matches_view_seat(criteria,
+			container->view, seat);
+	}
+	if (has_container_criteria(criteria)
+		&& criteria_matches_container(criteria, container)
+	) {
+		return true;
+	}
+	return false;
+}
+
 list_t *criteria_for_view(struct sway_view *view, enum criteria_type types) {
+	struct sway_seat *seat = input_manager_current_seat();
 	list_t *criterias = config->criteria;
 	list_t *matches = create_list();
 	for (int i = 0; i < criterias->length; ++i) {
 		struct criteria *criteria = criterias->items[i];
-		if ((criteria->type & types) && criteria_matches_view(criteria, view)) {
+		if ((criteria->type & types)
+			&& criteria_matches_view_seat(criteria, view, seat)) {
 			list_add(matches, criteria);
 		}
 	}
@@ -474,14 +496,10 @@ struct match_data {
 static void criteria_get_containers_iterator(struct sway_container *container,
 		void *data) {
 	struct match_data *match_data = data;
-	if (container->view) {
-		if (criteria_matches_view(match_data->criteria, container->view)) {
-			list_add(match_data->matches, container);
-		}
-	} else if (has_container_criteria(match_data->criteria)) {
-		if (criteria_matches_container(match_data->criteria, container)) {
-			list_add(match_data->matches, container);
-		}
+	if (criteria_matches_container_seat(match_data->criteria,
+		container, input_manager_current_seat())
+	) {
+		list_add(match_data->matches, container);
 	}
 }
 
