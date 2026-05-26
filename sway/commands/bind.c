@@ -658,14 +658,14 @@ void seat_execute_command(struct sway_seat *seat, struct sway_binding *binding) 
 	}
 
 	sway_log(SWAY_DEBUG, "running command for binding: %s", binding->command);
-	struct sway_container *con = NULL;
+	struct sway_node *con_node = NULL;
 	// Container selected by mouse is considered an "override"
 	if (binding->type == BINDING_MOUSESYM
 			|| binding->type == BINDING_MOUSECODE) {
-		con = seat_binding_default_container(seat, binding);
+		con_node = &(seat_binding_default_container(seat, binding)->node);
 	}
 
-	list_t *res_list = execute_command(binding->command, seat, con);
+	list_t *res_list = execute_command(binding->command, seat, con_node);
 	bool success = true;
 	for (int i = 0; i < res_list->length; ++i) {
 		struct cmd_results *results = res_list->items[i];

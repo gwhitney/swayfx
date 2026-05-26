@@ -293,6 +293,13 @@ static void ipc_send_event(const char *json_string, enum ipc_command_type event)
 
 void ipc_event_workspace(struct sway_workspace *old,
 		struct sway_workspace *new, const char *change) {
+	// If we want to special-case focus to also generate an "unfocus" event,
+	// we could do that here.
+	struct sway_node *node = NULL;
+	if (new) {
+          node = &(new->node);
+	}
+	binding_events_execute(change, node);
 	if (!ipc_has_event_listeners(IPC_EVENT_WORKSPACE)) {
 		return;
 	}
@@ -319,6 +326,7 @@ void ipc_event_workspace(struct sway_workspace *old,
 }
 
 void ipc_event_window(struct sway_container *window, const char *change) {
+	binding_events_execute(change, &(window->node));
 	if (!ipc_has_event_listeners(IPC_EVENT_WINDOW)) {
 		return;
 	}

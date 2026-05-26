@@ -139,6 +139,7 @@ static struct cmd_results *cmd_bind_or_unbind_gesture(int argc, char **argv, boo
 				struct cmd_results *error
 					= cmd_results_new(CMD_INVALID, "%s", e);
 				free(e);
+				free(binding);
 				return error;
 			}
 		} else {

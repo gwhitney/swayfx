@@ -48,6 +48,7 @@ static const struct cmd_handler handlers[] = {
 	{ "bar", cmd_bar },
 	{ "bindcode", cmd_bindcode },
 	{ "bindgesture", cmd_bindgesture },
+	{ "bindevent", cmd_bindevent },
 	{ "bindswitch", cmd_bindswitch },
 	{ "bindsym", cmd_bindsym },
 	{ "blur", cmd_blur },
@@ -119,6 +120,7 @@ static const struct cmd_handler handlers[] = {
 	{ "titlebar_separator", cmd_titlebar_separator },
 	{ "unbindcode", cmd_unbindcode },
 	{ "unbindgesture", cmd_unbindgesture },
+	{ "unbindevent", cmd_unbindevent },
 	{ "unbindswitch", cmd_unbindswitch },
 	{ "unbindsym", cmd_unbindsym },
 	{ "workspace", cmd_workspace },
@@ -243,7 +245,7 @@ static void set_config_node(struct sway_node *node, bool node_overridden) {
 }
 
 list_t *execute_command(char *_exec, struct sway_seat *seat,
-		struct sway_container *con) {
+		struct sway_node *node) {
 	char *cmd;
 	char matched_delim = ';';
 	list_t *containers = NULL;
@@ -326,8 +328,8 @@ list_t *execute_command(char *_exec, struct sway_seat *seat,
 
 
 		if (!using_criteria) {
-			if (con) {
-				set_config_node(&con->node, true);
+			if (node) {
+				set_config_node(node, true);
 			} else {
 				set_config_node(seat_get_focus_inactive(seat, &root->node),
 						false);
@@ -454,6 +456,7 @@ struct cmd_results *config_command(char *exec, char **new_block) {
 				&& handler->handle != cmd_bindcode
 				&& handler->handle != cmd_bindswitch
 				&& handler->handle != cmd_bindgesture
+				&& handler->handle != cmd_bindevent
 				&& handler->handle != cmd_set
 				&& handler->handle != cmd_for_window
 				&& (*argv[i] == '\"' || *argv[i] == '\'')) {

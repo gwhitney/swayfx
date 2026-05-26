@@ -98,6 +98,15 @@ struct sway_gesture_binding {
 };
 
 /**
+ * An event binding and an associated command.
+ */
+struct sway_event_binding {
+	char *event;
+	struct criteria* criteria;
+	char *command;
+};
+
+/**
  * Focus on window activation.
  */
 enum sway_fowa {
@@ -117,6 +126,7 @@ struct sway_mode {
 	list_t *mouse_bindings;
 	list_t *switch_bindings;
 	list_t *gesture_bindings;
+	list_t *event_bindings;
 	bool pango;
 };
 
@@ -755,10 +765,14 @@ void free_switch_binding(struct sway_switch_binding *binding);
 
 void free_gesture_binding(struct sway_gesture_binding *binding);
 
+void free_event_binding(struct sway_event_binding *binding);
+
 struct sway_container *seat_binding_default_container(struct sway_seat *seat,
 	struct sway_binding *binding);
 
 void seat_execute_command(struct sway_seat *seat, struct sway_binding *binding);
+
+void binding_events_execute(const char* event, struct sway_node *node);
 
 void load_swaybar(struct bar_config *bar);
 

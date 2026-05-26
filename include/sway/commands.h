@@ -54,11 +54,11 @@ const struct cmd_handler *find_handler(const char *line,
  * Parse and executes a command.
  *
  * If the command string contains criteria then the command will be executed on
- * all matching containers. Otherwise, it'll run on the `con` container. If
- * `con` is NULL then it'll run on the currently focused container.
+ * all matching containers. Otherwise, it'll run on the given `node`. If
+ * `node` is NULL then it'll run on the currently focused container.
  */
 list_t *execute_command(char *command,  struct sway_seat *seat,
-		struct sway_container *con);
+		struct sway_node *node);
 /**
  * Parse and handles a command during config file loading.
  *
@@ -114,6 +114,7 @@ sway_cmd cmd_assign;
 sway_cmd cmd_bar;
 sway_cmd cmd_bindcode;
 sway_cmd cmd_bindgesture;
+sway_cmd cmd_bindevent;
 sway_cmd cmd_bindswitch;
 sway_cmd cmd_bindsym;
 sway_cmd cmd_blur;
@@ -225,6 +226,7 @@ sway_cmd cmd_titlebar_separator;
 sway_cmd cmd_unbindcode;
 sway_cmd cmd_unbindswitch;
 sway_cmd cmd_unbindgesture;
+sway_cmd cmd_unbindevent;
 sway_cmd cmd_unbindsym;
 sway_cmd cmd_unmark;
 sway_cmd cmd_urgent;

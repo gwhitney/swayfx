@@ -8,8 +8,8 @@ sway - configuration file and commands
 
 A sway configuration file is a list of sway commands that are executed by sway
 on startup.  These commands usually consist of setting your preferences and
-setting key bindings. An example config is likely present in /etc/sway/config
-for you to check out.
+setting key (or mouse, etc.) bindings. An example config is likely present in
+/etc/sway/config for you to check out.
 
 Lines in the configuration file might be extended through multiple lines by
 adding a '\\' character at the end of line. e.g.:
@@ -38,7 +38,7 @@ output eDP-1 resolution 1920x1080
 ```
 
 These commands can be executed in your config file, via *swaymsg*(1), or via
-the bindsym command.
+the binding commands (bindsym, bindgesture, etc.).
 
 # COMMAND CONVENTIONS
 
@@ -105,8 +105,8 @@ The following commands may only be used in the configuration file.
 
 ## Runtime only commands
 The following commands cannot be used directly in the configuration file.
-They are expected to be used with *bindsym*, *for_window*, or at runtime through
-*swaymsg*(1).
+They are expected to be used with *bindsym* and related commands, *for_window*,
+or at runtime through *swaymsg*(1).
 
 *border* none|normal|csd|pixel [<n>]
 	Set border style for focused window. _normal_ includes a border of
@@ -643,6 +643,28 @@ animation_duration_ms <value>
 
 ```
 
+*bindevent* [--no-warn] [<criteria>] <event_name> <command>
+	Binds the <command> to be run on a given window (or workspace) when the
+	named event occurs on that window. If a criteria is specified, the
+	window (or workspace) must also match the criteria for the command to
+	be executed. A binding with a matching criteria supersedes any binding
+	for the same event with no criteria, but all bindings with matching
+	criteria for a given event are run in the order they were registered
+	with sway. The specified <command> runs just before ipc messages for
+	the event are sent to any subscribers.
+
+	The list of valid <event_name>s follows. Those applying only to windows
+	are marked with an "o," and those applying only to workspaces are
+	marked with a "k." The unmarked ones may occur for either windows
+	or workspaces. The events are: _close_ (o), _empty_ (k), _floating_ (o),
+	_focus_, _fullscreen_mode_ (o), _init_ (k), _mark_ (o), _move_,
+	_reload_ (k), _rename_ (k), _new_(o), _title_ (o), and _urgent_.
+
+	By default, this command warns if an unconditional event binding (i.e.,
+	one with no criteria) is replaced by a new binding; the optional
+	_--no-warn_ flag, which currently must come before any criterion,
+	suppresses this warning.
+
 *client.background* <color>
 	This command is ignored and is only present for i3 compatibility.
 
@@ -1071,6 +1093,10 @@ The default colors are:
 
 *unbindswitch* <switch>:<state>
 	Removes a binding for when <switch> changes to <state>.
+
+*unbindevent* <event>
+	Removes all bindings for the given woindow/workspace event, whether or
+	not they were specified with criteria.
 
 *unbindgesture* [--exact] [--input-device=<device>] \
 <gesture>[:<fingers>][:directions]
