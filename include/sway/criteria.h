@@ -48,8 +48,10 @@ struct criteria {
 	enum atom_name window_type;
 #endif
 	bool all;
+	bool alone;
 	bool floating;
 	bool tiling;
+	bool scratch;
 	char urgent; // 'l' for latest or 'o' for oldest
 	struct pattern *workspace;
 	pid_t pid;

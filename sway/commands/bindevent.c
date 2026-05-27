@@ -154,7 +154,7 @@ void binding_events_execute(const char* event, struct sway_node *node) {
 		list_t *res_list = execute_command(binding->command,
 			input_manager_current_seat(), node);
 		for (int r = 0; r < res_list->length; ++r) {
-			struct cmd_results *results = res_list->items[i];
+			struct cmd_results *results = res_list->items[r];
 			if (results->status != CMD_SUCCESS) {
 				sway_log(SWAY_DEBUG,
 					"error in command for binding: %s (%s)",
@@ -178,7 +178,7 @@ void binding_events_execute(const char* event, struct sway_node *node) {
 		list_t *res_list = execute_command(binding->command,
 			input_manager_current_seat(), node);
 		for (int r = 0; r < res_list->length; ++r) {
-			struct cmd_results *results = res_list->items[i];
+			struct cmd_results *results = res_list->items[r];
 			if (results->status != CMD_SUCCESS) {
 				sway_log(SWAY_DEBUG,
 					"error in command for binding: %s (%s)",

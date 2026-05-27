@@ -189,13 +189,13 @@ static struct sway_binding* get_active_mouse_binding(
 			if (current_input == binding_input && current_criteria) {
 				continue;
 			}
+		}
 
-			current = binding;
-			if (binding_input && criteria_matched) {
-				// If a binding is found for the exact input,
-				// and it also matched a criteria, quit searching
-				break;
-			}
+		current = binding;
+		if (binding_input && criteria_matched) {
+			// If a binding is found for the exact input,
+			// and it also matched a criteria, quit searching
+			break;
 		}
 	}
 	return current;
@@ -353,7 +353,6 @@ static bool trigger_pointer_button_binding(struct sway_seat *seat,
 			device_identifier, seat);
 		state_erase_button(e, button);
 	}
-
 	free(device_identifier);
 	if (binding) {
 		seat_execute_command(seat, binding);

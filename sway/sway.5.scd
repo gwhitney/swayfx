@@ -657,8 +657,9 @@ animation_duration_ms <value>
 	are marked with an "o," and those applying only to workspaces are
 	marked with a "k." The unmarked ones may occur for either windows
 	or workspaces. The events are: _close_ (o), _empty_ (k), _floating_ (o),
-	_focus_, _fullscreen_mode_ (o), _init_ (k), _mark_ (o), _move_,
-	_reload_ (k), _rename_ (k), _new_(o), _title_ (o), and _urgent_.
+	_focus_, _fullscreen_mode_ (o), _init_ (k), _mark_ (o), _maximize_ (o),
+	_minimize_ (o), _move_, _reload_ (k), _rename_ (k), _new_(o),
+	_title_ (o), _unmaximize_ (o), _unminimize_ (o), and _urgent_.
 
 	By default, this command warns if an unconditional event binding (i.e.,
 	one with no criteria) is replaced by a new binding; the optional
@@ -1222,6 +1223,14 @@ The following attributes may be matched with:
 *all*
 	Matches all windows.
 
+*alone*
+	A window is said to have "no siblings" if there are no other windows
+	in whatever container it is in, or if it is not in any container.
+	This criterion matches a window if it has no siblings, and the container
+	it is in has no siblings, and so on up the tree of containers. For
+	example, if the window is the only one in its workspace, _alone_ will
+	match.
+
 *app_id*
 	Compare value against the app id. Can be a regular expression. If value is
 	\_\_focused\_\_, then the app id must be the same as that of the currently
@@ -1256,6 +1265,9 @@ The following attributes may be matched with:
 
 *pid*
 	Compare value against the window's process ID. Must be numeric.
+
+*scratch*
+	Matches windows in the scratchpad.
 
 *shell*
 	Compare value against the window shell, such as "xdg_shell" or "xwayland".

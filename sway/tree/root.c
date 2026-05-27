@@ -120,7 +120,6 @@ void root_scratchpad_add_container(struct sway_container *con, struct sway_works
 		return;
 	}
 
-	struct sway_container *parent = con->pending.parent;
 	struct sway_workspace *workspace = con->pending.workspace;
 
 	set_container_transform(workspace, con);
@@ -137,6 +136,7 @@ void root_scratchpad_add_container(struct sway_container *con, struct sway_works
 		container_floating_move_to_center(con);
 	}
 
+	struct sway_container *parent = con->pending.parent;
 	container_detach(con);
 	con->scratchpad = true;
 	list_add(root->scratchpad, con);

@@ -745,21 +745,35 @@ static void handle_foreign_minimize(
 			listener, view, foreign_minimize);
 	struct wlr_foreign_toplevel_handle_v1_minimized_event *event = data;
 	struct sway_container *container = view->container;
-	if (!container->pending.workspace) {
-		while (container->pending.parent) {
-			container = container->pending.parent;
+	struct sway_container *orig_container = container;
+	if (config->scratchpad_minimize) {
+		if (!container->pending.workspace) {
+			while (container->pending.parent) {
+				container = container->pending.parent;
+			}
 		}
-	}
-	if(event->minimized) {
-		if (!container->scratchpad) {
-			root_scratchpad_add_container(container, NULL);
-		} else if (container->pending.workspace) {
-			root_scratchpad_hide(container);
+		if(event->minimized) {
+			if (!container->scratchpad) {
+				root_scratchpad_add_container(container, NULL);
+			} else if (container->pending.workspace) {
+				root_scratchpad_hide(container);
+			}
+		} else {
+			if(container->scratchpad)
+				root_scratchpad_show(container);
 		}
-	} else {
-		if(container->scratchpad)
-			root_scratchpad_show(container);
+
 	}
+	const char *change = event->minimized ? "minimize" : "unminimize";
+	ipc_event_window(orig_container, change);
+}
+
+static void handle_foreign_maximize(struct wl_listener *listener, void *data) {
+	struct sway_view *view = wl_container_of(
+			listener, view, foreign_maximize);
+	struct wlr_foreign_toplevel_handle_v1_maximized_event *event = data;
+	const char *change = event->maximized ? "maximize" : "unmaximize";
+	ipc_event_window(view->container, change);
 }
 
 static void handle_foreign_destroy(
@@ -770,9 +784,8 @@ static void handle_foreign_destroy(
 	wl_list_remove(&view->foreign_activate_request.link);
 	wl_list_remove(&view->foreign_fullscreen_request.link);
 	wl_list_remove(&view->foreign_close_request.link);
-	if (config->scratchpad_minimize) {
-		wl_list_remove(&view->foreign_minimize.link);
-	}
+	wl_list_remove(&view->foreign_minimize.link);
+	wl_list_remove(&view->foreign_maximize.link);
 	wl_list_remove(&view->foreign_destroy.link);
 }
 
@@ -856,11 +869,12 @@ void view_map(struct sway_view *view, struct wlr_surface *wlr_surface,
 	view->foreign_close_request.notify = handle_foreign_close_request;
 	wl_signal_add(&view->foreign_toplevel->events.request_close,
 			&view->foreign_close_request);
-	if (config->scratchpad_minimize) {
-		view->foreign_minimize.notify = handle_foreign_minimize;
-		wl_signal_add(&view->foreign_toplevel->events.request_minimize,
-				&view->foreign_minimize);
-	}
+	view->foreign_minimize.notify = handle_foreign_minimize;
+	wl_signal_add(&view->foreign_toplevel->events.request_minimize,
+			&view->foreign_minimize);
+	view->foreign_maximize.notify = handle_foreign_maximize;
+	wl_signal_add(&view->foreign_toplevel->events.request_maximize,
+			&view->foreign_maximize);
 	view->foreign_destroy.notify = handle_foreign_destroy;
 	wl_signal_add(&view->foreign_toplevel->events.destroy,
 			&view->foreign_destroy);

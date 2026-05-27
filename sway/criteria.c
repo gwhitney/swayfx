@@ -20,6 +20,7 @@ bool criteria_is_empty(struct criteria *criteria) {
 	return !criteria->title
 		&& !criteria->shell
 		&& !criteria->all
+		&& !criteria->alone
 		&& !criteria->app_id
 		&& !criteria->con_mark
 		&& !criteria->con_id
@@ -32,6 +33,7 @@ bool criteria_is_empty(struct criteria *criteria) {
 #endif
 		&& !criteria->floating
 		&& !criteria->tiling
+		&& !criteria->scratch
 		&& !criteria->urgent
 		&& !criteria->workspace
 		&& !criteria->pid
@@ -394,6 +396,17 @@ static bool criteria_matches_view_seat(struct criteria *criteria,
 	}
 #endif
 
+	if (criteria->alone) {
+		struct sway_container *con = view->container;
+		while (con) {
+			list_t *siblings = container_get_siblings(con);
+			if (siblings->length > 1) {
+				return false;
+			}
+                        con = con->pending.parent;
+		}
+	}
+
 	if (criteria->floating) {
 		if (!container_is_floating(view->container)) {
 			return false;
@@ -402,6 +415,12 @@ static bool criteria_matches_view_seat(struct criteria *criteria,
 
 	if (criteria->tiling) {
 		if (container_is_floating(view->container)) {
+			return false;
+		}
+	}
+
+	if (criteria->scratch) {
+		if (!(view->container->scratchpad)) {
 			return false;
 		}
 	}
@@ -542,6 +561,7 @@ static enum atom_name parse_window_type(const char *type) {
 
 enum criteria_token {
 	T_ALL,
+	T_ALONE,
 	T_APP_ID,
 	T_CON_ID,
 	T_CON_MARK,
@@ -555,6 +575,7 @@ enum criteria_token {
 #endif
 	T_SHELL,
 	T_TILING,
+	T_SCRATCH,
 	T_TITLE,
 	T_URGENT,
 	T_WORKSPACE,
@@ -569,6 +590,8 @@ enum criteria_token {
 static enum criteria_token token_from_name(char *name) {
 	if (strcmp(name, "all") == 0) {
 		return T_ALL;
+	} else if (strcmp(name, "alone") == 0) {
+		return T_ALONE;
 	} else if (strcmp(name, "app_id") == 0) {
 		return T_APP_ID;
 	} else if (strcmp(name, "con_id") == 0) {
@@ -597,6 +620,8 @@ static enum criteria_token token_from_name(char *name) {
 		return T_WORKSPACE;
 	} else if (strcmp(name, "tiling") == 0) {
 		return T_TILING;
+	} else if (strcmp(name, "scratch") == 0) {
+		return T_SCRATCH;
 	} else if (strcmp(name, "floating") == 0) {
 		return T_FLOATING;
 	} else if (strcmp(name, "pid") == 0) {
@@ -621,8 +646,9 @@ static bool parse_token(struct criteria *criteria, char *name, char *value) {
 		return false;
 	}
 
-	// Require value, unless token is all, floating or tiled
-	if (!value && token != T_ALL && token != T_FLOATING && token != T_TILING) {
+	// Require value, unless token is all, alone, floating, tiled, or scratch
+	if (!value && token != T_ALL && token != T_ALONE
+            && token != T_FLOATING && token != T_TILING && token != T_SCRATCH) {
 		const char *fmt = "Token '%s' requires a value";
 		int len = strlen(fmt) + strlen(name) - 1;
 		error = malloc(len);
@@ -634,6 +660,9 @@ static bool parse_token(struct criteria *criteria, char *name, char *value) {
 	switch (token) {
 	case T_ALL:
 		criteria->all = true;
+		break;
+	case T_ALONE:
+		criteria->alone = true;
 		break;
 	case T_TITLE:
 		pattern_create(&criteria->title, value);
@@ -684,6 +713,9 @@ static bool parse_token(struct criteria *criteria, char *name, char *value) {
 		break;
 	case T_TILING:
 		criteria->tiling = true;
+		break;
+	case T_SCRATCH:
+		criteria->scratch = true;
 		break;
 	case T_URGENT:
 		if (strcmp(value, "latest") == 0 ||

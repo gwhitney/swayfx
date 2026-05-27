@@ -795,9 +795,15 @@ struct sway_container *container_find_child(struct sway_container *container,
 void container_for_each_child(struct sway_container *container,
 		void (*f)(struct sway_container *container, void *data),
 		void *data) {
+	if (!container) {
+		return;
+	}
 	if (container->pending.children)  {
 		for (int i = 0; i < container->pending.children->length; ++i) {
 			struct sway_container *child = container->pending.children->items[i];
+			if (!child) { // something is wrong, abort.
+                          return;
+			}
 			f(child, data);
 			container_for_each_child(child, f, data);
 		}
@@ -1644,6 +1650,9 @@ void container_handle_fullscreen_reparent(struct sway_container *con) {
 }
 
 static void set_workspace(struct sway_container *container, void *data) {
+	if (!container) {
+		return;
+	}
 	container->pending.workspace = container->pending.parent->pending.workspace;
 }
 
