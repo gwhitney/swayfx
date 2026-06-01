@@ -239,7 +239,8 @@ static void workspace_name_from_binding(const struct sway_binding * binding,
 				strcmp(_target, "prev_on_output") == 0 ||
 				strcmp(_target, "number") == 0 ||
 				strcmp(_target, "back_and_forth") == 0 ||
-				strcmp(_target, "current") == 0) {
+				strcmp(_target, "current") == 0 ||
+				strcmp(_target, "new workspace") == 0) {
 			free(_target);
 			free(dup);
 			return;
