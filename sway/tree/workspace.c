@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <strings.h>
+#include <wlr/types/wlr_cursor.h>
 #include "stringop.h"
 #include "sway/input/input-manager.h"
 #include "sway/input/cursor.h"
@@ -588,11 +589,21 @@ bool workspace_switch(struct sway_workspace *workspace) {
 	sway_log(SWAY_DEBUG, "Switching to workspace %p:%s",
 		workspace, workspace->name);
 	struct sway_node *next = seat_get_focus_inactive(seat, &workspace->node);
-	if (next == NULL) {
+	if (next == NULL || config->focus_follows_mouse == FOLLOWS_ALWAYS) {
+		// When ffm is ALWAYS, we are definitely going to focus thw
+		// window that ends up under the mouse after the workspace
+		// switch. So avoid possibly focusing some other window first:
 		next = &workspace->node;
 	}
 	seat_set_focus(seat, next);
 	arrange_workspace(workspace);
+	struct wlr_cursor *cursor = seat->cursor->cursor;
+	struct wlr_surface *surface = NULL;
+	double sx, sy;
+	// Now we can make sure that ffm policy is obeyed; this will presumably
+	// only have any effect when ffm is ALWAYS.
+	check_focus_follows_mouse(seat, NULL,
+		node_at_coords(seat, cursor->x, cursor->y, &surface, &sx, &sy));
 	return true;
 }
 

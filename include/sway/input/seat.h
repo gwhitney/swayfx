@@ -257,6 +257,9 @@ void drag_icons_update_position(struct sway_seat *seat);
 enum wlr_edges find_resize_edge(struct sway_container *cont,
 		struct wlr_surface *surface, struct sway_cursor *cursor);
 
+void check_focus_follows_mouse(struct sway_seat *seat,
+		void *data, struct sway_node *hovered_node);
+
 void seatop_begin_default(struct sway_seat *seat);
 
 void seatop_begin_down(struct sway_seat *seat, struct sway_container *con,

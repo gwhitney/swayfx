@@ -568,8 +568,9 @@ static void handle_button(struct sway_seat *seat, uint32_t time_msec,
  * Functions used by handle_pointer_motion  /
  *----------------------------------------*/
 
-static void check_focus_follows_mouse(struct sway_seat *seat,
-		struct seatop_default_event *e, struct sway_node *hovered_node) {
+void check_focus_follows_mouse(struct sway_seat *seat,
+		void *data, struct sway_node *hovered_node) {
+	struct seatop_default_event *e = data;
 	struct sway_node *focus = seat_get_focus(seat);
 
 	// This is the case if a layer-shell surface is hovered.
@@ -616,16 +617,18 @@ static void check_focus_follows_mouse(struct sway_seat *seat,
 		return;
 	}
 
-	// This is where we handle the common case. We don't want to focus inactive
-	// tabs, hence the view_is_visible check.
+	// This is where we handle the common case. Unless ffm is ALWAYS, we
+	// don't want to focus an inactive view just by mousing over its tab,
+	// hence the visibility check
+	bool always = config->focus_follows_mouse == FOLLOWS_ALWAYS;
 	if (node_is_view(hovered_node) &&
-			view_is_visible(hovered_node->sway_container->view)) {
+		(always || view_is_visible(hovered_node->sway_container->view))
+	) {
 		// e->previous_node is the node which the cursor was over previously.
 		// If focus_follows_mouse is yes and the cursor got over the view due
 		// to, say, a workspace switch, we don't want to set the focus.
 		// But if focus_follows_mouse is "always", we do.
-		if (hovered_node != e->previous_node ||
-				config->focus_follows_mouse == FOLLOWS_ALWAYS) {
+		if ((data && hovered_node != e->previous_node) || always) {
 			seat_set_focus(seat, hovered_node);
 			transaction_commit_dirty();
 		}
