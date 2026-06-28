@@ -1294,7 +1294,12 @@ bool view_can_tear(struct sway_view *view) {
 static void send_frame_done_iterator(struct wlr_scene_buffer *scene_buffer,
 		int x, int y, void *data) {
 	struct timespec *when = data;
-	wl_signal_emit_mutable(&scene_buffer->events.frame_done, when);
+	struct wlr_scene_frame_done_event done;
+	done.when = *when;
+	done.output = scene_buffer->primary_output;
+	if (done.output) {
+		wl_signal_emit_mutable(&scene_buffer->events.frame_done, &done);
+	}
 }
 
 void view_send_frame_done(struct sway_view *view) {

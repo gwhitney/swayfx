@@ -105,9 +105,10 @@ struct buffer_timer {
 static int handle_buffer_timer(void *data) {
 	struct wlr_scene_buffer *buffer = data;
 
-	struct timespec now;
-	clock_gettime(CLOCK_MONOTONIC, &now);
-	wlr_scene_buffer_send_frame_done(buffer, &now);
+	struct wlr_scene_frame_done_event done;
+	done.output = buffer->primary_output;
+	clock_gettime(CLOCK_MONOTONIC, &(done.when));
+	wlr_scene_buffer_send_frame_done(buffer, &done);
 	return 0;
 }
 
@@ -185,7 +186,10 @@ static void send_frame_done_iterator(struct wlr_scene_buffer *buffer,
 	if (timer) {
 		wl_event_source_timer_update(timer->frame_done_timer, delay);
 	} else {
-		wlr_scene_buffer_send_frame_done(buffer, &data->when);
+		struct wlr_scene_frame_done_event done;
+		done.output = data->output->scene_output;
+		done.when = data->when;
+		wlr_scene_buffer_send_frame_done(buffer, &done);
 	}
 }
 
